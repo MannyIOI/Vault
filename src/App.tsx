@@ -2973,41 +2973,48 @@ function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      setIsAuthReady(true);
       if (u) {
         // Sync user profile
-        const userRef = doc(db, 'users', u.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-          setUserData(data);
-          if (data.favorites) setFavorites(data.favorites);
-          if (data.organizationId) {
-            setScreen('DASHBOARD');
+        try {
+          const userRef = doc(db, 'users', u.uid);
+          const userSnap = await getDoc(userRef);
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            setUserData(data);
+            if (data.favorites) setFavorites(data.favorites);
+            if (data.organizationId) {
+              setScreen('DASHBOARD');
+            } else {
+              setScreen('ONBOARDING');
+            }
           } else {
+            // Auth user exists but no public.users row yet (trigger missed
+            // this account). Bootstrap one now so subsequent writes work.
+            const bootstrap = {
+              email: u.email,
+              displayName: u.displayName || null,
+              photoURL: u.photoURL || null,
+              role: u.email === 'aman.teferi.80@gmail.com' ? 'admin' : 'clerk',
+              favorites: [],
+            };
+            try {
+              await setDoc(doc(db, 'users', u.uid), bootstrap);
+              setUserData({ uid: u.uid, ...bootstrap });
+            } catch (e) {
+              console.error('Failed to bootstrap user row', e);
+            }
             setScreen('ONBOARDING');
           }
-        } else {
-          // Auth user exists but no public.users row yet (trigger missed
-          // this account). Bootstrap one now so subsequent writes work.
-          const bootstrap = {
-            email: u.email,
-            displayName: u.displayName || null,
-            photoURL: u.photoURL || null,
-            role: u.email === 'aman.teferi.80@gmail.com' ? 'admin' : 'clerk',
-            favorites: [],
-          };
-          try {
-            await setDoc(doc(db, 'users', u.uid), bootstrap);
-            setUserData({ uid: u.uid, ...bootstrap });
-          } catch (e) {
-            console.error('Failed to bootstrap user row', e);
-          }
-          setScreen('ONBOARDING');
+        } finally {
+          // Only reveal the UI after the destination screen has been
+          // resolved — otherwise React renders one frame with the default
+          // screen ('LOGIN'), causing a login-screen flash on refresh.
+          setIsAuthReady(true);
         }
       } else {
         setScreen('LOGIN');
         setUserData(null);
+        setIsAuthReady(true);
       }
     });
     return unsubscribe;
