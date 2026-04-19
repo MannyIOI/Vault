@@ -62,11 +62,18 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ transact
     const profit = totalRev - totalCost;
     const margin = totalRev > 0 ? (profit / totalRev) * 100 : 0;
 
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recent = transactions.filter(t => new Date(t.timestamp).getTime() >= cutoff);
+    const recentRev = recent.filter(t => t.type === 'SALE').reduce((a, t) => a + t.amount, 0);
+    const recentCost = recent.filter(t => t.type === 'EXPENSE' || t.type === 'PURCHASE').reduce((a, t) => a + Math.abs(t.amount), 0);
+
     return {
       mrr: totalRev,
       mrc: totalCost,
       profit: profit,
-      margin: margin.toFixed(1)
+      margin: margin.toFixed(1),
+      recentRev,
+      recentCost,
     };
   }, [transactions]);
 
@@ -137,10 +144,10 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ transact
               </div>
             )}
 
-              <div className="flex items-center gap-1 p-1 bg-slate-50 rounded-xl overflow-x-auto no-scrollbar">
-                <span className="text-emerald-400">0 ETB ▲</span>
-                <span className="opacity-60">New Sales (30d)</span>
-              </div>
+            <div className="inline-flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-lg text-xs font-bold">
+              <span className="text-emerald-400">{metrics.recentRev.toLocaleString()} ETB ▲</span>
+              <span className="text-white/60">New Sales (30d)</span>
+            </div>
           </div>
           <div className="absolute right-0 bottom-0 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent rounded-full -mr-16 -mb-16" />
         </div>
@@ -191,10 +198,10 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ transact
               </div>
             )}
 
-              <div className="flex items-center gap-1 p-1 bg-slate-50 rounded-xl overflow-x-auto no-scrollbar">
-                <span className="text-emerald-600">0 ETB ▲</span>
-                <span className="text-emerald-600/60">New Expenses (30d)</span>
-              </div>
+            <div className="inline-flex items-center gap-2 bg-amber-50 px-3 py-1.5 rounded-lg text-xs font-bold">
+              <span className="text-amber-600">{metrics.recentCost.toLocaleString()} ETB ▲</span>
+              <span className="text-amber-600/60">New Expenses (30d)</span>
+            </div>
           </div>
         </div>
 

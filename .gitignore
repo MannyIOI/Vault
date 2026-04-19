@@ -11,3 +11,7 @@ coverage/
 .next/
 out/
 next-env.d.ts
+
+# Supabase CLI
+supabase/.branches
+supabase/.temp

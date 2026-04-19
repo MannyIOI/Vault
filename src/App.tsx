@@ -36,11 +36,13 @@ import { QRScanner } from './components/QRScanner';
 import { MoneyInput } from './components/MoneyInput';
 import { StoreDropdown } from './components/StoreDropdown';
 import { Sidebar as NewSidebar } from './components/Sidebar';
+import { AsyncButton } from './components/AsyncButton';
+import { ToastHost, notify } from './components/Toast';
 import { ExecutiveDashboard } from './components/ExecutiveDashboard';
 import { BankScreen } from './components/BankScreen';
 import { WarehouseScreen } from './components/WarehouseScreen';
 import { EmployeeScreen } from './components/EmployeeScreen';
-import { BankAccount, BankTransaction, Warehouse, InventoryItem } from './types';
+import { BankAccount, BankTransaction, Warehouse, InventoryItem, Loan } from './types';
 
 // --- Error Boundary ---
 class ErrorBoundary extends React.Component<{ children?: React.ReactNode }, { hasError: boolean; error: any }> {
@@ -154,7 +156,7 @@ const Sidebar = ({ isOpen, onClose, setScreen, onLogout, userData }: { isOpen: b
               </div>
               <div>
                 <p className="font-headline font-bold">{userData?.displayName || 'Unknown'}</p>
-                <p className="text-xs text-slate-400">{userData?.role === 'admin' ? 'Administrator' : 'Clerk'} • {userData?.branch || 'Main Branch'}</p>
+                <p className="text-xs text-slate-400">{userData?.role === 'admin' ? 'Administrator' : 'Clerk'}</p>
               </div>
             </div>
           </div>
@@ -416,13 +418,21 @@ const LoginScreen = ({ onLogin }: { onLogin: (email: string, password: string, m
   const [displayName, setDisplayName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSignupSuccess(false);
     setSubmitting(true);
     try {
       await onLogin(email.trim(), password, mode, displayName.trim() || undefined);
+      if (mode === 'signup') {
+        setSignupSuccess(true);
+        setMode('signin');
+        setPassword('');
+        setDisplayName('');
+      }
     } catch (err: any) {
       setError(err?.message || 'Authentication failed');
     } finally {
@@ -499,7 +509,7 @@ const LoginScreen = ({ onLogin }: { onLogin: (email: string, password: string, m
 
           <button
             type="button"
-            onClick={() => { setError(null); setMode(mode === 'signin' ? 'signup' : 'signin'); }}
+            onClick={() => { setError(null); setSignupSuccess(false); setMode(mode === 'signin' ? 'signup' : 'signin'); }}
             className="mt-6 w-full text-sm text-slate-500 hover:text-[#0D1C32] transition"
           >
             {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
@@ -510,6 +520,32 @@ const LoginScreen = ({ onLogin }: { onLogin: (email: string, password: string, m
           </p>
         </div>
       </main>
+      {signupSuccess && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
+          onClick={() => setSignupSuccess(false)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+              <Icons.CheckCircle size={32} />
+            </div>
+            <h2 className="font-headline text-2xl font-bold text-[#0D1C32] mb-2">Account Created</h2>
+            <p className="text-slate-500 text-sm mb-6">
+              Your account was created successfully. Please sign in to continue.
+            </p>
+            <button
+              type="button"
+              onClick={() => setSignupSuccess(false)}
+              className="w-full bg-[#0D1C32] text-white py-3 rounded-2xl font-headline font-bold shadow-lg active:scale-95 transition-all"
+            >
+              Continue to Sign In
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -812,7 +848,7 @@ const VaultDashboardScreen = ({ setScreen, transactions, metrics, onTransactionC
   );
 };
 
-const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSidebar, initialWarehouseId = 'ALL', userData, onApproveItem }: { inventory: any[], onItemClick: (item: any) => void, onMoveItem: (id: string, wId: string) => void, warehouses: Warehouse[], onOpenSidebar: () => void, initialWarehouseId?: string, userData?: any, onApproveItem?: (id: string) => void }) => {
+const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSidebar, initialWarehouseId = 'ALL', userData, onApproveItem, onLogPurchase }: { inventory: any[], onItemClick: (item: any) => void, onMoveItem: (id: string, wId: string) => void, warehouses: Warehouse[], onOpenSidebar: () => void, initialWarehouseId?: string, userData?: any, onApproveItem?: (id: string) => void, onLogPurchase?: () => void }) => {
   const [filter, setFilter] = useState('ALL ITEMS');
   const [statusFilter, setStatusFilter] = useState('ALL STATUS');
   const [searchQuery, setSearchQuery] = useState('');
@@ -868,19 +904,30 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
              </div>
            </div>
            
-           <div className="flex gap-1.5 bg-slate-50 p-1 rounded-xl sm:rounded-[14px] shadow-inner self-end sm:self-auto">
-              <button 
-                onClick={() => setViewMode('LIST')}
-                className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition-all ${viewMode === 'LIST' ? 'bg-white text-[#0D1C32] shadow-sm scale-105' : 'text-slate-400 hover:bg-white/50'}`}
-              >
-                <Icons.Ledger size={16} />
-              </button>
-              <button 
-                onClick={() => setViewMode('GRID')}
-                className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition-all ${viewMode === 'GRID' ? 'bg-white text-[#0D1C32] shadow-sm scale-105' : 'text-slate-400 hover:bg-white/50'}`}
-              >
-                <Icons.DashboardGrid size={16} />
-              </button>
+           <div className="flex items-center gap-2 sm:gap-3 self-end sm:self-auto">
+              {onLogPurchase && (
+                <button
+                  onClick={onLogPurchase}
+                  className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-[14px] text-xs font-bold shadow-sm shadow-emerald-600/30 hover:bg-emerald-700 active:scale-95 transition-all"
+                >
+                  <Icons.Plus size={14} />
+                  <span>Log Purchase</span>
+                </button>
+              )}
+              <div className="flex gap-1.5 bg-slate-50 p-1 rounded-xl sm:rounded-[14px] shadow-inner">
+                <button 
+                  onClick={() => setViewMode('LIST')}
+                  className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition-all ${viewMode === 'LIST' ? 'bg-white text-[#0D1C32] shadow-sm scale-105' : 'text-slate-400 hover:bg-white/50'}`}
+                >
+                  <Icons.Ledger size={16} />
+                </button>
+                <button 
+                  onClick={() => setViewMode('GRID')}
+                  className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition-all ${viewMode === 'GRID' ? 'bg-white text-[#0D1C32] shadow-sm scale-105' : 'text-slate-400 hover:bg-white/50'}`}
+                >
+                  <Icons.DashboardGrid size={16} />
+                </button>
+              </div>
            </div>
         </div>
 
@@ -1589,7 +1636,6 @@ const ReconcileScreen = ({ onBack, transactions, userData, onOpenSidebar }: { on
         timestamp: new Date().toISOString(),
         clerkId: userData.uid,
         clerkName: userData.displayName,
-        branch: userData.branch,
         summary,
         physicalCash: Number(cashCount.replace(/,/g, '')),
         physicalInventory: Number(inventoryCount),
@@ -1604,7 +1650,7 @@ const ReconcileScreen = ({ onBack, transactions, userData, onOpenSidebar }: { on
     try {
       await addDoc(collection(db, 'notifications'), {
         title: 'Reconciliation Submitted',
-        body: `${userData.displayName} finished the daily report for ${userData.branch}.`,
+        body: `${userData.displayName} finished the daily report.`,
         timestamp: new Date().toISOString(),
         type: 'info'
       });
@@ -1733,17 +1779,13 @@ const ReconcileScreen = ({ onBack, transactions, userData, onOpenSidebar }: { on
   );
 };
 
-const InviteScreen = ({ onBack, onInvite, invites, branches, onOpenSidebar }: { onBack: () => void, onInvite: (email: string, branch: string) => void, invites: any[], branches: string[], onOpenSidebar?: () => void }) => {
+const InviteScreen = ({ onBack, onInvite, invites, onOpenSidebar }: { onBack: () => void, onInvite: (email: string) => Promise<any> | void, invites: any[], onOpenSidebar?: () => void }) => {
   const [email, setEmail] = useState('');
-  const [branch, setBranch] = useState(branches[0] || 'Main Branch');
-  const [isSending, setIsSending] = useState(false);
 
   const handleInvite = async () => {
-    if (!email || !branch) return;
-    setIsSending(true);
-    await onInvite(email, branch);
-    setIsSending(false);
-    onBack();
+    if (!email) return;
+    await onInvite(email);
+    setEmail('');
   };
 
   return (
@@ -1789,30 +1831,16 @@ const InviteScreen = ({ onBack, onInvite, invites, branches, onOpenSidebar }: { 
                 placeholder="clerk@example.com" 
               />
             </div>
-            <div className="space-y-2">
-              <label className="font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-400">Assign to Branch</label>
-              <select 
-                value={branch} 
-                onChange={(e) => setBranch(e.target.value)}
-                className="w-full bg-slate-50 border-none rounded-xl py-4 px-4 font-headline font-bold text-primary focus:ring-2 focus:ring-primary/20 transition-all"
-              >
-                {branches.map(b => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
-            </div>
-            <button 
-              onClick={handleInvite} 
-              disabled={isSending}
-              className={`w-full py-5 bg-[#0D1C32] text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 transition-all shadow-xl flex items-center justify-center gap-3 ${isSending ? 'opacity-50 cursor-not-allowed' : ''}`}
+            <AsyncButton
+              onClick={handleInvite}
+              disabled={!email}
+              loadingLabel="Sending Invite…"
+              successLabel="Invitation Sent"
+              icon={<Icons.Send size={20} />}
+              className="w-full py-5 bg-[#0D1C32] text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 shadow-xl"
             >
-              {isSending ? (
-                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Icons.Send size={24} />
-              )}
-              {isSending ? 'Sending Invite...' : 'Send Invitation'}
-            </button>
+              Send Invitation
+            </AsyncButton>
           </div>
 
           <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-50">
@@ -1822,7 +1850,14 @@ const InviteScreen = ({ onBack, onInvite, invites, branches, onOpenSidebar }: { 
                 <div key={invite.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-xl">
                   <div>
                     <p className="font-bold text-sm text-on-surface">{invite.email}</p>
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Sent: {invite.timestamp?.toDate ? invite.timestamp.toDate().toLocaleDateString() : 'Just now'}</p>
+                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Sent: {(() => {
+                      const t: any = invite.timestamp;
+                      if (!t) return 'Unknown';
+                      const d = typeof t === 'string' || typeof t === 'number'
+                        ? new Date(t)
+                        : (t.toDate ? t.toDate() : (t instanceof Date ? t : null));
+                      return d && !isNaN(d.getTime()) ? d.toLocaleDateString() : 'Unknown';
+                    })()}</p>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                     invite.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
@@ -1850,6 +1885,7 @@ const SaleScreen = ({ onBack, onSale, inventory, cart, setCart, bankAccounts, on
   const [selectedBankId, setSelectedBankId] = useState(bankAccounts[0]?.id || '');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [saleResult, setSaleResult] = useState<{ ok: boolean, message: string, total?: number } | null>(null);
 
   const selectedItem = selectedImei ? inventory.find(i => i.imei === selectedImei) : null;
 
@@ -1877,31 +1913,58 @@ const SaleScreen = ({ onBack, onSale, inventory, cart, setCart, bankAccounts, on
   const handleCheckout = async () => {
     if (cart.length === 0 || !selectedBankId) return;
     setIsProcessing(true);
-    for (const entry of cart) {
-      await onSale({ 
-        amount: entry.salePrice, 
-        item: entry.item.name, 
-        imei: entry.item.imei,
-        bankAccountId: selectedBankId
+    let failed = 0;
+    let succeeded = 0;
+    let lastErr: any = null;
+    let totalCharged = 0;
+    try {
+      for (const entry of cart) {
+        try {
+          await onSale({
+            amount: entry.salePrice,
+            item: entry.item.name,
+            imei: entry.item.imei,
+            bankAccountId: selectedBankId
+          });
+          succeeded++;
+          totalCharged += entry.salePrice;
+        } catch (e) {
+          failed++;
+          lastErr = e;
+        }
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+    if (failed === 0) {
+      setCart([]);
+      setSaleResult({ ok: true, message: `${succeeded} item${succeeded === 1 ? '' : 's'} sold successfully.`, total: totalCharged });
+    } else {
+      setSaleResult({
+        ok: false,
+        message: `${succeeded} succeeded, ${failed} failed. ${lastErr?.message || ''}`.trim()
       });
     }
-    setCart([]);
-    setIsProcessing(false);
-    onBack();
   };
 
   const handleOneByOneSale = async () => {
     if (!selectedItem || !selectedBankId) return;
     setIsProcessing(true);
-    await onSale({ 
-      amount: resolveSalePrice(selectedItem), 
-      item: selectedItem.name, 
-      imei: selectedItem.imei,
-      bankAccountId: selectedBankId
-    });
-    setOverridePrice('');
-    setIsProcessing(false);
-    onBack();
+    const amount = resolveSalePrice(selectedItem);
+    try {
+      await onSale({
+        amount,
+        item: selectedItem.name,
+        imei: selectedItem.imei,
+        bankAccountId: selectedBankId
+      });
+      setOverridePrice('');
+      setSaleResult({ ok: true, message: `Sold ${selectedItem.name} for ${amount.toLocaleString()} ETB.`, total: amount });
+    } catch (e: any) {
+      setSaleResult({ ok: false, message: e?.message || 'Sale failed. Please try again.' });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const totalAmount = cart.reduce((sum, entry) => sum + entry.salePrice, 0);
@@ -2080,22 +2143,55 @@ const SaleScreen = ({ onBack, onSale, inventory, cart, setCart, bankAccounts, on
           </section>
         </div>
       </main>
+      {saleResult && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
+          onClick={() => { const wasOk = saleResult.ok; setSaleResult(null); if (wasOk) onBack(); }}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${saleResult.ok ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+              {saleResult.ok ? <Icons.CheckCircle size={32} /> : <Icons.Warning size={32} />}
+            </div>
+            <h2 className="font-headline text-2xl font-bold text-[#0D1C32] mb-2">
+              {saleResult.ok ? 'Sale Complete' : 'Sale Failed'}
+            </h2>
+            <p className="text-slate-500 text-sm mb-2">{saleResult.message}</p>
+            {saleResult.ok && saleResult.total !== undefined && (
+              <p className="font-headline font-bold text-3xl text-emerald-600 mb-6">
+                {saleResult.total.toLocaleString()} <span className="text-sm opacity-60">ETB</span>
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => { const wasOk = saleResult.ok; setSaleResult(null); if (wasOk) onBack(); }}
+              className="w-full bg-[#0D1C32] text-white py-3 rounded-2xl font-headline font-bold shadow-lg active:scale-95 transition-all mt-4"
+            >
+              {saleResult.ok ? 'Done' : 'Close'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-const PurchaseScreen = ({ onBack, onAdd, warehouses, onOpenSidebar }: { onBack: () => void, onAdd: (item: any) => void, warehouses: Warehouse[], onOpenSidebar?: () => void }) => {
+const PurchaseScreen = ({ onBack, onAdd, warehouses, onOpenSidebar }: { onBack: () => void, onAdd: (item: any) => Promise<any> | any, warehouses: Warehouse[], onOpenSidebar?: () => void }) => {
   const [imei, setImei] = useState('');
   const [model, setModel] = useState('');
   const [purchasePrice, setPurchasePrice] = useState('');
   const [valuation, setValuation] = useState('');
-  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id || '');
+  const [warehouseId, setWarehouseId] = useState('');
   const [isScanning, setIsScanning] = useState(false);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const price = Number(purchasePrice.replace(/,/g, ''));
-    if (!model || !imei || isNaN(price) || price <= 0) return;
-    onAdd({
+    if (!model || !imei || isNaN(price) || price <= 0) {
+      throw new Error('Fill in model, IMEI, and a positive purchase price.');
+    }
+    await onAdd({
       id: Math.random().toString(36).substr(2, 9),
       name: model,
       imei,
@@ -2103,7 +2199,7 @@ const PurchaseScreen = ({ onBack, onAdd, warehouses, onOpenSidebar }: { onBack: 
       valuation: price, 
       status: 'IN_STOCK',
       category: 'PHONES',
-      warehouseId
+      warehouseId: warehouseId || null,
     });
     onBack();
   };
@@ -2178,13 +2274,13 @@ const PurchaseScreen = ({ onBack, onAdd, warehouses, onOpenSidebar }: { onBack: 
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Assigned Warehouse</label>
+                <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Assigned Warehouse <span className="text-slate-300 normal-case font-semibold">(optional)</span></label>
                 <select 
                   value={warehouseId}
                   onChange={(e) => setWarehouseId(e.target.value)}
                   className="w-full bg-slate-50 border-none rounded-xl py-4 px-4 font-headline font-bold text-on-surface"
                 >
-                  <option value="">Select storage node...</option>
+                  <option value="">Unassigned — assign later</option>
                   {warehouses.map(w => (
                     <option key={w.id} value={w.id}>{w.name}</option>
                   ))}
@@ -2192,16 +2288,22 @@ const PurchaseScreen = ({ onBack, onAdd, warehouses, onOpenSidebar }: { onBack: 
               </div>
            </div>
 
-           <button onClick={handleAdd} className="w-full py-5 bg-[#0D1C32] text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 transition-all shadow-xl flex items-center justify-center gap-3">
-              <Icons.Plus size={24} /> Register Asset
-           </button>
+           <AsyncButton
+             onClick={handleAdd}
+             loadingLabel="Registering…"
+             successLabel="Registered"
+             icon={<Icons.Plus size={20} />}
+             className="w-full py-5 bg-[#0D1C32] text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 shadow-xl"
+           >
+             Register Asset
+           </AsyncButton>
         </div>
       </main>
     </div>
   );
 };
 
-const LendScreen = ({ onBack, inventory, onLend, branches, onCreateBranch, favorites, onToggleFavorite, onOpenSidebar }: { onBack: () => void, inventory: any[], onLend: (data: any) => void, branches: string[], onCreateBranch: (name: string) => void, favorites: string[], onToggleFavorite: (s: string) => void, onOpenSidebar?: () => void }) => {
+const LendScreen = ({ onBack, inventory, onLend, stores, onCreateStore, favorites, onToggleFavorite, onOpenSidebar }: { onBack: () => void, inventory: any[], onLend: (data: any) => void, stores: string[], onCreateStore: (name: string) => void, favorites: string[], onToggleFavorite: (s: string) => void, onOpenSidebar?: () => void }) => {
   const [selectedImei, setSelectedImei] = useState('');
   const [destination, setDestination] = useState('');
   const [valuation, setValuation] = useState('');
@@ -2223,7 +2325,7 @@ const LendScreen = ({ onBack, inventory, onLend, branches, onCreateBranch, favor
     onBack();
   };
 
-  const sortedStores = [...branches].sort((a, b) => {
+  const sortedStores = [...stores].sort((a, b) => {
     const aFav = favorites.includes(a);
     const bFav = favorites.includes(b);
     if (aFav && !bFav) return -1;
@@ -2292,7 +2394,7 @@ const LendScreen = ({ onBack, inventory, onLend, branches, onCreateBranch, favor
               stores={sortedStores}
               favorites={favorites}
               onToggleFavorite={onToggleFavorite}
-              onCreateStore={onCreateBranch}
+              onCreateStore={onCreateStore}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -2324,10 +2426,10 @@ const LendScreen = ({ onBack, inventory, onLend, branches, onCreateBranch, favor
   );
 };
 
-const TransferScreen = ({ onBack, inventory, onTransfer, branches, onCreateBranch, favorites, onToggleFavorite, onOpenSidebar }: { onBack: () => void, inventory: any[], onTransfer: (data: any) => void, branches: string[], onCreateBranch: (name: string) => void, favorites: string[], onToggleFavorite: (s: string) => void, onOpenSidebar?: () => void }) => {
+const TransferScreen = ({ onBack, inventory, onTransfer, stores, onCreateStore, favorites, onToggleFavorite, onOpenSidebar }: { onBack: () => void, inventory: any[], onTransfer: (data: any) => void, stores: string[], onCreateStore: (name: string) => void, favorites: string[], onToggleFavorite: (s: string) => void, onOpenSidebar?: () => void }) => {
   const [type, setType] = useState<'ASSET' | 'CASH'>('ASSET');
   const [direction, setDirection] = useState<'SEND' | 'RECEIVE'>('SEND');
-  const [source, setSource] = useState('Main Branch HQ');
+  const [source, setSource] = useState('');
   const [destination, setDestination] = useState('');
   const [amount, setAmount] = useState('');
   const [selectedImei, setSelectedImei] = useState('');
@@ -2363,7 +2465,7 @@ const TransferScreen = ({ onBack, inventory, onTransfer, branches, onCreateBranc
     onBack();
   };
 
-  const sortedStores = [...branches].sort((a, b) => {
+  const sortedStores = [...stores].sort((a, b) => {
     const aFav = favorites.includes(a);
     const bFav = favorites.includes(b);
     if (aFav && !bFav) return -1;
@@ -2426,7 +2528,7 @@ const TransferScreen = ({ onBack, inventory, onTransfer, branches, onCreateBranc
                 stores={sortedStores}
                 favorites={favorites}
                 onToggleFavorite={onToggleFavorite}
-                onCreateStore={onCreateBranch}
+                onCreateStore={onCreateStore}
               />
             </div>
             <div className="space-y-2">
@@ -2437,7 +2539,7 @@ const TransferScreen = ({ onBack, inventory, onTransfer, branches, onCreateBranc
                 stores={sortedStores}
                 favorites={favorites}
                 onToggleFavorite={onToggleFavorite}
-                onCreateStore={onCreateBranch}
+                onCreateStore={onCreateStore}
               />
             </div>
           </div>
@@ -2682,6 +2784,35 @@ const OnboardingScreen = ({ user, invites, onAccept, onCreateOrg, onLogout }: { 
   );
 };
 
+// Per-screen data dependencies. Keys mirror the table names emitted on the
+// 'vault:data-changed' event bus and used as keys in fetchersRef. Screens
+// not listed here trigger no fetches (e.g. LOGIN, ONBOARDING, PROFILE).
+const SCREEN_DEPS: Partial<Record<Screen, string[]>> = {
+  DASHBOARD:      ['transactions'],
+  VAULT_DASHBOARD:['transactions', 'warehouses'],
+  WAREHOUSE:      ['transactions', 'warehouses'],
+  BANK:           ['bank_accounts', 'bank_transactions', 'loans', 'users'],
+  LOANS:          ['bank_accounts', 'bank_transactions', 'loans', 'users'],
+  VAULT:          ['inventory', 'warehouses'],
+  ITEMS:          ['inventory', 'warehouses'],
+  NETWORK:        ['transactions', 'warehouses'],
+  LEDGER:         ['transactions'],
+  RECONCILE:      ['transactions'],
+  AUDIT:          ['transactions'],
+  INVITE:         ['invites', 'users'],
+  EXPENSE:        ['bank_accounts'],
+  SALE:           ['inventory', 'bank_accounts'],
+  PURCHASE:       ['warehouses', 'bank_accounts'],
+  LEND:           ['inventory'],
+  TRANSFER:       ['inventory', 'warehouses'],
+  DEBTS:          ['transactions'],
+  NOTIFICATIONS:  ['notifications'],
+  EMPLOYEE:       ['users', 'warehouses'],
+  ROLE_HIERARCHY: ['users'],
+  SALES_MANAGER:  ['transactions'],
+  SALES:          ['transactions'],
+};
+
 // --- Main App ---
 
 function App() {
@@ -2700,21 +2831,55 @@ function App() {
   const [selectedItemForHistory, setSelectedItemForHistory] = useState<any | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<any>(null);
+  const [orgName, setOrgName] = useState<string>('');
+  // Screens visible only to admin/manager users.
+  const ADMIN_ONLY_SCREENS: Screen[] = ['LOANS', 'SALES_MANAGER', 'EMPLOYEE', 'ROLE_HIERARCHY', 'AUDIT', 'WAREHOUSE', 'VAULT_DASHBOARD'];
+  React.useEffect(() => {
+    if (!userData) return;
+    if (userData.role !== 'admin' && ADMIN_ONLY_SCREENS.includes(screen)) {
+      setScreenState('SALES');
+    }
+  }, [userData, screen]);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [invites, setInvites] = useState<any[]>([]);
-  const [branches, setBranches] = useState<string[]>(['Stadium Outlet', 'Mercato Distribution', 'Global Electronics', 'Bole Branch']);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([]);
+  const [loans, setLoans] = useState<Loan[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [cart, setCart] = useState<{item: InventoryItem, salePrice: number}[]>([]);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // -----------------------------------------------------------------
+  // Role-aware data scoping. Admins see the full org; clerks only see
+  // data they touched themselves so manager-level totals stay private.
+  // -----------------------------------------------------------------
+  const isAdminUser = userData?.role === 'admin';
+  const myUid = user?.uid;
+  const visibleBankAccounts = React.useMemo(() => (
+    isAdminUser
+      ? bankAccounts
+      : bankAccounts.filter(a => a.type === 'EMPLOYEE' && a.ownerId === myUid)
+  ), [bankAccounts, isAdminUser, myUid]);
+  const visibleBankTransactions = React.useMemo(() => {
+    if (isAdminUser) return bankTransactions;
+    const visibleIds = new Set(visibleBankAccounts.map(a => a.id));
+    return bankTransactions.filter(t => visibleIds.has(t.bankAccountId));
+  }, [bankTransactions, visibleBankAccounts, isAdminUser]);
+  const visibleTransactions = React.useMemo(() => (
+    isAdminUser
+      ? transactions
+      : transactions.filter(t => (t as any).clerkId === myUid || t.clerk === user?.displayName)
+  ), [transactions, isAdminUser, myUid, user?.displayName]);
+  const visibleUsers = React.useMemo(() => (
+    isAdminUser ? users : users.filter(u => u.id === myUid || u.uid === myUid)
+  ), [users, isAdminUser, myUid]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -2781,7 +2946,13 @@ function App() {
   // One fetcher per collection, exposed via a stable ref so the global
   // 'vault:data-changed' listener can invalidate just the affected
   // collection instead of refetching all 9 every time anything changes.
+  //
+  // We also lazy-load: a screen only triggers fetches for the collections
+  // it actually displays, and `loadedRef` remembers what's already in the
+  // cache so navigating back doesn't re-hit the network. Writes still
+  // invalidate the relevant collection via the event bus.
   const fetchersRef = useRef<Record<string, () => Promise<void>>>({});
+  const loadedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -2793,7 +2964,8 @@ function App() {
       try {
         const snap = await getDocs(query(collection(db, 'inventory')));
         setInventory(snap.docs.map((d: any) => ({ ...d.data(), id: d.id } as InventoryItem)));
-      } catch (e) { handleDbError(e, OperationType.LIST, 'inventory'); }
+        loadedRef.current.add('inventory');
+      } catch (e) { console.error('Failed to load inventory', e); notify.error(e); }
     };
 
     const fetchTransactions = async () => {
@@ -2803,22 +2975,16 @@ function App() {
           : query(collection(db, 'transactions'), orderBy('timestamp', 'desc'));
         const snap = await getDocs(q);
         setTransactions(snap.docs.map((d: any) => ({ ...d.data(), id: d.id } as Transaction)));
-      } catch (e) { handleDbError(e, OperationType.LIST, 'transactions'); }
+        loadedRef.current.add('transactions');
+      } catch (e) { console.error('Failed to load transactions', e); notify.error(e); }
     };
 
     const fetchNotifications = async () => {
       try {
         const snap = await getDocs(query(collection(db, 'notifications'), orderBy('timestamp', 'desc')));
         setNotifications(snap.docs.map((d: any) => ({ id: d.id, ...d.data() })));
-      } catch (e) { handleDbError(e, OperationType.LIST, 'notifications'); }
-    };
-
-    const fetchBranches = async () => {
-      try {
-        const snap = await getDocs(query(collection(db, 'branches')));
-        const bList = snap.docs.map((d: any) => d.data().name);
-        setBranches(prev => Array.from(new Set([...prev, ...bList].map((s: string) => s.trim()))).filter(Boolean));
-      } catch (e) { handleDbError(e, OperationType.LIST, 'branches'); }
+        loadedRef.current.add('notifications');
+      } catch (e) { console.error('Failed to load notifications', e); notify.error(e); }
     };
 
     const fetchInvites = async () => {
@@ -2828,35 +2994,48 @@ function App() {
           : query(collection(db, 'invites'), where('email', '==', user.email), orderBy('timestamp', 'desc'));
         const snap = await getDocs(q);
         setInvites(snap.docs.map((d: any) => ({ id: d.id, ...d.data() })));
-      } catch (e) { handleDbError(e, OperationType.LIST, 'invites'); }
+        loadedRef.current.add('invites');
+      } catch (e) { console.error('Failed to load invites', e); notify.error(e); }
     };
 
     const fetchBankAccounts = async () => {
       try {
         const snap = await getDocs(collection(db, 'bankAccounts'));
         setBankAccounts(snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as BankAccount)));
-      } catch (e) { handleDbError(e, OperationType.LIST, 'bankAccounts'); }
+        loadedRef.current.add('bank_accounts');
+      } catch (e) { console.error('Failed to load bank accounts', e); notify.error(e); }
     };
 
     const fetchBankTransactions = async () => {
       try {
         const snap = await getDocs(query(collection(db, 'bankTransactions'), orderBy('date', 'desc')));
         setBankTransactions(snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as BankTransaction)));
-      } catch (e) { handleDbError(e, OperationType.LIST, 'bankTransactions'); }
+        loadedRef.current.add('bank_transactions');
+      } catch (e) { console.error('Failed to load bank transactions', e); notify.error(e); }
+    };
+
+    const fetchLoans = async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'loans'), orderBy('date', 'desc')));
+        setLoans(snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Loan)));
+        loadedRef.current.add('loans');
+      } catch (e) { console.error('Failed to load loans', e); notify.error(e); }
     };
 
     const fetchUsers = async () => {
       try {
         const snap = await getDocs(collection(db, 'users'));
         setUsers(snap.docs.map((d: any) => ({ id: d.id, ...d.data() })));
-      } catch (e) { handleDbError(e, OperationType.LIST, 'users'); }
+        loadedRef.current.add('users');
+      } catch (e) { console.error('Failed to load users', e); notify.error(e); }
     };
 
     const fetchWarehouses = async () => {
       try {
         const snap = await getDocs(collection(db, 'warehouses'));
         setWarehouses(snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Warehouse)));
-      } catch (e) { handleDbError(e, OperationType.LIST, 'warehouses'); }
+        loadedRef.current.add('warehouses');
+      } catch (e) { console.error('Failed to load warehouses', e); notify.error(e); }
     };
 
     // Map shim-event table names → fetchers. Some writes touch multiple
@@ -2865,49 +3044,74 @@ function App() {
       inventory: fetchInventory,
       transactions: fetchTransactions,
       notifications: fetchNotifications,
-      branches: fetchBranches,
       invites: fetchInvites,
       bank_accounts: fetchBankAccounts,
       bank_transactions: fetchBankTransactions,
+      loans: fetchLoans,
       users: fetchUsers,
       warehouses: fetchWarehouses,
     };
 
-    // Initial parallel load.
-    Promise.all([
-      fetchInventory(),
-      fetchTransactions(),
-      fetchNotifications(),
-      fetchBranches(),
-      fetchInvites(),
-      fetchBankAccounts(),
-      fetchBankTransactions(),
-      fetchUsers(),
-      fetchWarehouses(),
-    ]);
-  }, [user, userData?.role, userData?.branch]);
+    // Reset the cache for a fresh session and prefetch ONLY the small
+    // collections needed by the app shell (notification bell + invite
+    // acceptance flow). Everything else loads on demand per-screen.
+    loadedRef.current = new Set();
+    Promise.all([fetchNotifications(), fetchInvites()]);
+  }, [user, userData?.role]);
 
-  // Single global listener: only refetch the collection that actually changed.
+  // Fetch organization display name whenever the user's org changes.
+  useEffect(() => {
+    const orgId = userData?.organizationId;
+    if (!orgId) { setOrgName(''); return; }
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'organizations', orgId));
+        if (snap.exists()) setOrgName((snap.data() as any).name || '');
+      } catch (e) {
+        handleDbError(e, OperationType.GET, `organizations/${orgId}`);
+      }
+    })();
+  }, [userData?.organizationId]);
+
+  // Single global listener: only refetch the collection that actually changed,
+  // and only if it's already in our cache (i.e. some screen has shown it).
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onChange = (e: Event) => {
       const table = (e as CustomEvent).detail?.table as string | undefined;
       const fetchers = fetchersRef.current;
+      const loaded = loadedRef.current;
+      const refetchIfLoaded = (key: string) => {
+        if (loaded.has(key)) fetchers[key]?.();
+      };
       if (!table) {
-        Object.values(fetchers).forEach(fn => fn());
+        loaded.forEach(refetchIfLoaded);
         return;
       }
-      fetchers[table]?.();
+      refetchIfLoaded(table);
       // Cross-collection invariants: a bank movement may have just been
       // paired with a fresh transactions row, and vice versa.
-      if (table === 'transactions') fetchers.bank_transactions?.();
-      if (table === 'bank_transactions') fetchers.transactions?.();
+      if (table === 'transactions') refetchIfLoaded('bank_transactions');
+      if (table === 'bank_transactions') refetchIfLoaded('transactions');
       // Inventory writes often coincide with a PURCHASE audit row.
-      if (table === 'inventory') fetchers.transactions?.();
+      if (table === 'inventory') refetchIfLoaded('transactions');
     };
     window.addEventListener('vault:data-changed', onChange);
     return () => window.removeEventListener('vault:data-changed', onChange);
   }, []);
+
+  // Lazy per-screen loader: only fetch the collections the current screen
+  // actually needs, and only the first time we visit it. Subsequent visits
+  // are served from the in-memory cache (kept fresh by the event bus).
+  useEffect(() => {
+    if (!user) return;
+    const fetchers = fetchersRef.current;
+    const loaded = loadedRef.current;
+    const deps = SCREEN_DEPS[screen] ?? [];
+    deps.forEach(key => {
+      if (!loaded.has(key)) fetchers[key]?.();
+    });
+  }, [screen, user, userData?.role]);
 
   useEffect(() => {
     (window as any).setScreen = setScreen;
@@ -2927,17 +3131,16 @@ function App() {
     }
   };
 
-  const handleInvite = async (email: string, branch: string) => {
+  const handleInvite = async (email: string) => {
     try {
       await addDoc(collection(db, 'invites'), {
         email,
-        branch,
         role: 'clerk',
         invitedBy: user?.uid,
         status: 'PENDING',
         timestamp: serverTimestamp()
       });
-      alert(`Invite sent to ${email} for branch ${branch}`);
+      alert(`Invite sent to ${email}`);
     } catch (e) {
       handleDbError(e, OperationType.CREATE, 'invites');
     }
@@ -2964,6 +3167,8 @@ function App() {
   ) => {
     if (mode === 'signup') {
       await signUpWithEmail(email, password, displayName);
+      // Drop the auto-created session so the user must explicitly sign in.
+      try { await logout(); } catch { /* ignore */ }
     } else {
       await loginWithEmail(email, password);
     }
@@ -2981,18 +3186,17 @@ function App() {
     if (!user) return;
     try {
       const newUser = {
-        uid: user.uid,
         email: user.email,
         displayName: user.displayName || 'New User',
         photoURL: user.photoURL || 'https://picsum.photos/seed/clerk/100/100',
         role: 'clerk',
         organizationId: invite.organizationId,
-        branch: invite.branch || 'Main Branch',
         favorites: []
       };
-      await setDoc(doc(db, 'users', user.uid), newUser);
+      await setDoc(doc(db, 'users', user.uid), newUser, { merge: true });
       await updateDoc(doc(db, 'invites', invite.id), { status: 'ACCEPTED' });
-      setUserData(newUser);
+      setUserData({ uid: user.uid, ...newUser });
+      clearOrgCache();
       setScreen('DASHBOARD');
     } catch (e) {
       handleDbError(e, OperationType.WRITE, 'users/invites');
@@ -3045,7 +3249,6 @@ function App() {
         clerkId: user?.uid,
         status: isApproved ? 'SETTLED' : 'PENDING',
         imei: item.imei,
-        branch: userData?.branch || 'Main Branch',
       });
     } catch (e) {
       handleDbError(e, OperationType.WRITE, 'transactions');
@@ -3058,8 +3261,7 @@ function App() {
         purchasePrice,
         status,
         isApproved,
-        branch: userData?.branch || 'Main Branch',
-        warehouseId: item.warehouseId || '',
+        warehouseId: item.warehouseId || null,
         lastUpdated: new Date().toISOString()
       });
     } catch (e) {
@@ -3116,7 +3318,6 @@ function App() {
         clerk: user?.displayName || 'Unknown',
         clerkId: user?.uid,
         status: 'SETTLED',
-        branch: userData?.branch || 'Main Branch'
       });
 
       if (data.bankAccountId) {
@@ -3152,7 +3353,6 @@ function App() {
         clerkId: user?.uid,
         status: 'SETTLED',
         imei: data.imei,
-        branch: userData?.branch || 'Main Branch',
       });
     } catch (e) {
       handleDbError(e, OperationType.WRITE, 'transactions');
@@ -3225,7 +3425,6 @@ function App() {
         status: 'COMPLETED',
         imei: data.imei,
         location: data.location,
-        branch: userData?.branch || 'Main Branch'
       });
 
       await addDoc(collection(db, 'notifications'), {
@@ -3259,7 +3458,6 @@ function App() {
         status: 'SETTLED',
         imei: item.imei,
         location: item.lentTo,
-        branch: userData?.branch || 'Main Branch'
       });
       setSelectedItemForHistory(null);
     } catch (e) {
@@ -3291,7 +3489,6 @@ function App() {
         status: 'SETTLED',
         imei: item.imei,
         location: item.lentTo,
-        branch: userData?.branch || 'Main Branch'
       });
       setSelectedItemForHistory(null);
     } catch (e) {
@@ -3323,7 +3520,6 @@ function App() {
         timestamp: new Date().toISOString(),
         clerk: user?.displayName || 'Unknown',
         clerkId: user?.uid,
-        branch: userData?.branch || 'Main Branch',
         status: data.transferType === 'CASH' ? 'COMPLETED' : 'IN_TRANSIT'
       });
       console.log('Transaction added:', data);
@@ -3336,18 +3532,6 @@ function App() {
       });
     } catch (e) {
       handleDbError(e, OperationType.WRITE, 'transactions');
-    }
-  };
-
-  const handleCreateBranch = async (name: string) => {
-    if (!name) return;
-    try {
-      await addDoc(collection(db, 'branches'), {
-        name,
-        createdAt: new Date().toISOString()
-      });
-    } catch (e) {
-      handleDbError(e, OperationType.WRITE, 'branches');
     }
   };
 
@@ -3403,17 +3587,91 @@ function App() {
       handleDbError(new Error('No organization selected'), OperationType.WRITE, 'bankAccounts');
       return;
     }
+    const isAdminUser = userData?.role === 'admin';
+    // Clerks may only ever create their own EMPLOYEE bank account.
+    const safeType = isAdminUser ? (acc.type || 'STORE') : 'EMPLOYEE';
+    const safeOwner = isAdminUser
+      ? (acc.ownerId || 'STORE')
+      : (user?.uid || acc.ownerId);
     try {
       await addDoc(collection(db, 'bankAccounts'), {
         ...acc,
         organizationId: userData.organizationId,
         currency: 'ETB',
         balance: Number(acc.balance),
-        type: acc.type || 'STORE',
-        ownerId: acc.ownerId || 'STORE'
+        type: safeType,
+        ownerId: safeOwner,
       });
     } catch (e) {
       handleDbError(e, OperationType.WRITE, 'bankAccounts');
+    }
+  };
+
+  const handleAddLoan = async (loan: Partial<Loan>) => {
+    if (!userData?.organizationId) {
+      handleDbError(new Error('No organization selected'), OperationType.WRITE, 'loans');
+      return;
+    }
+    try {
+      await addDoc(collection(db, 'loans'), {
+        type: loan.type || 'GIVEN',
+        counterparty: loan.counterparty,
+        amount: Number(loan.amount || 0),
+        bankAccountId: loan.bankAccountId || null,
+        status: 'OUTSTANDING',
+        date: new Date().toISOString(),
+        dueDate: loan.dueDate || null,
+        notes: loan.notes || null,
+        organizationId: userData.organizationId,
+      });
+
+      // If linked to a bank account, record the cash movement.
+      if (loan.bankAccountId && Number(loan.amount) > 0) {
+        const isOutflow = loan.type === 'GIVEN'; // we paid the counterparty
+        await addDoc(collection(db, 'bankTransactions'), {
+          bankAccountId: loan.bankAccountId,
+          type: isOutflow ? 'WITHDRAWAL' : 'DEPOSIT',
+          amount: Number(loan.amount),
+          activity: isOutflow ? 'Loan Given' : 'Loan Received',
+          project: 'Loan',
+          to: loan.counterparty || '',
+          date: new Date().toISOString(),
+        });
+      }
+    } catch (e) {
+      handleDbError(e, OperationType.WRITE, 'loans');
+    }
+  };
+
+  const handleSettleLoan = async (loan: Loan, amount?: number) => {
+    try {
+      const remaining = Number(loan.amount || 0);
+      const paid = amount && amount > 0 && amount < remaining ? amount : remaining;
+      const isPartial = paid < remaining;
+
+      if (isPartial) {
+        await updateDoc(doc(db, 'loans', loan.id), { amount: remaining - paid });
+      } else {
+        await updateDoc(doc(db, 'loans', loan.id), { status: 'SETTLED' });
+      }
+
+      // Pair settlement with reverse cash movement when a bank account is linked.
+      if (loan.bankAccountId && paid > 0) {
+        const isInflow = loan.type === 'GIVEN'; // counterparty paid us back
+        await addDoc(collection(db, 'bankTransactions'), {
+          bankAccountId: loan.bankAccountId,
+          type: isInflow ? 'DEPOSIT' : 'WITHDRAWAL',
+          amount: paid,
+          activity: isPartial
+            ? (isInflow ? 'Loan Repaid (Partial · In)' : 'Loan Repaid (Partial · Out)')
+            : (isInflow ? 'Loan Repaid (In)' : 'Loan Repaid (Out)'),
+          project: 'Loan',
+          to: loan.counterparty || '',
+          date: new Date().toISOString(),
+        });
+      }
+    } catch (e) {
+      handleDbError(e, OperationType.WRITE, `loans/${loan.id}`);
     }
   };
 
@@ -3453,6 +3711,7 @@ function App() {
 
   return (
     <ErrorBoundary>
+      <ToastHost />
       <div className="min-h-screen bg-[#F7F9FB] font-body text-on-surface selection:bg-primary/10">
         <AnimatePresence mode="wait">
           {screen === 'LOGIN' ? (
@@ -3475,6 +3734,8 @@ function App() {
                 currentScreen={screen}
                 setScreen={setScreen}
                 user={user}
+                userData={userData}
+                orgName={orgName}
                 onLogout={handleLogout}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
@@ -3484,7 +3745,7 @@ function App() {
                 {screen === 'PROFILE' && <ProfileScreen onBack={() => setScreen('DASHBOARD')} user={user} userData={userData} onUpdate={handleUpdateProfile} canInstall={!!deferredPrompt} onInstall={handleInstall} />}
                 {screen === 'DASHBOARD' && (
                   <ExecutiveDashboard 
-                    transactions={transactions} 
+                    transactions={visibleTransactions} 
                     onOpenSidebar={() => setIsSidebarOpen(true)} 
                     onActionClick={(s: Screen) => setScreen(s)}
                     onSearchClick={() => setScreen('VAULT')}
@@ -3493,7 +3754,7 @@ function App() {
                 {(screen === 'VAULT_DASHBOARD' || screen === 'WAREHOUSE') && (
                   <WarehouseScreen 
                     setScreen={setScreen} 
-                    transactions={transactions} 
+                    transactions={visibleTransactions} 
                     metrics={metrics} 
                     onTransactionClick={setSelectedTransaction}
                     warehouses={warehouses}
@@ -3503,7 +3764,8 @@ function App() {
                     onOpenSidebar={() => setIsSidebarOpen(true)}
                   />
                 )}
-                {screen === 'BANK' && <BankScreen accounts={bankAccounts} transactions={bankTransactions} onAddAccount={handleAddBankAccount} onOpenSidebar={() => setIsSidebarOpen(true)} users={users} />}
+                {screen === 'BANK' && <BankScreen accounts={visibleBankAccounts} transactions={visibleBankTransactions} onAddAccount={handleAddBankAccount} onOpenSidebar={() => setIsSidebarOpen(true)} users={visibleUsers} loans={loans} onAddLoan={handleAddLoan} onSettleLoan={handleSettleLoan} />}
+                {screen === 'LOANS' && <BankScreen accounts={visibleBankAccounts} transactions={visibleBankTransactions} onAddAccount={handleAddBankAccount} onOpenSidebar={() => setIsSidebarOpen(true)} users={visibleUsers} loans={loans} onAddLoan={handleAddLoan} onSettleLoan={handleSettleLoan} initialTab="Loans" />}
                 {(screen === 'VAULT' || screen === 'ITEMS') && (
                   <VaultScreen 
                     inventory={inventory} 
@@ -3512,11 +3774,12 @@ function App() {
                     warehouses={warehouses}
                     onOpenSidebar={() => setIsSidebarOpen(true)}
                     initialWarehouseId={targetWarehouseId}
+                    onLogPurchase={() => setScreen('PURCHASE')}
                   />
                 )}
                 {screen === 'NETWORK' && (
                   <NetworkOverviewScreen 
-                    transactions={transactions} 
+                    transactions={visibleTransactions} 
                     warehouses={warehouses} 
                     metrics={metrics} 
                     onOpenSidebar={() => setIsSidebarOpen(true)} 
@@ -3525,7 +3788,7 @@ function App() {
                 )}
                 {screen === 'LEDGER' && (
                   <LedgerScreen 
-                    transactions={transactions} 
+                    transactions={visibleTransactions} 
                     onTransactionClick={setSelectedTransaction} 
                     onOpenSidebar={() => setIsSidebarOpen(true)}
                   />
@@ -3533,7 +3796,7 @@ function App() {
                 {screen === 'RECONCILE' && (
                   <ReconcileScreen 
                     onBack={() => setScreen('DASHBOARD')} 
-                    transactions={transactions} 
+                    transactions={visibleTransactions} 
                     userData={userData} 
                     onOpenSidebar={() => setIsSidebarOpen(true)}
                   />
@@ -3543,7 +3806,6 @@ function App() {
                     onBack={() => setScreen('DASHBOARD')} 
                     onInvite={handleInvite} 
                     invites={invites} 
-                    branches={branches} 
                     onOpenSidebar={() => setIsSidebarOpen(true)}
                   />
                 )}
@@ -3553,7 +3815,7 @@ function App() {
                     onExpense={async (data) => {
                       await handleExpense(data);
                     }} 
-                    bankAccounts={bankAccounts} 
+                    bankAccounts={visibleBankAccounts} 
                     onOpenSidebar={() => setIsSidebarOpen(true)}
                   />
                 )}
@@ -3564,7 +3826,7 @@ function App() {
                     inventory={inventory} 
                     cart={cart} 
                     setCart={setCart} 
-                    bankAccounts={bankAccounts} 
+                    bankAccounts={visibleBankAccounts} 
                     onOpenSidebar={() => setIsSidebarOpen(true)}
                   />
                 )}
@@ -3581,8 +3843,8 @@ function App() {
                     onBack={() => setScreen('DASHBOARD')} 
                     inventory={inventory} 
                     onLend={handleLend} 
-                    branches={branches} 
-                    onCreateBranch={handleCreateBranch} 
+                    stores={favorites}
+                    onCreateStore={handleToggleFavorite}
                     favorites={favorites} 
                     onToggleFavorite={handleToggleFavorite} 
                     onOpenSidebar={() => setIsSidebarOpen(true)}
@@ -3593,8 +3855,8 @@ function App() {
                     onBack={() => setScreen('NETWORK')} 
                     inventory={inventory} 
                     onTransfer={handleTransfer} 
-                    branches={branches} 
-                    onCreateBranch={handleCreateBranch} 
+                    stores={favorites}
+                    onCreateStore={handleToggleFavorite}
                     favorites={favorites} 
                     onToggleFavorite={handleToggleFavorite} 
                     onOpenSidebar={() => setIsSidebarOpen(true)}
@@ -3602,7 +3864,7 @@ function App() {
                 )}
                 {screen === 'DEBTS' && (
                   <DebtScreen 
-                    transactions={transactions} 
+                    transactions={visibleTransactions} 
                     onBack={() => setScreen('DASHBOARD')} 
                     onOpenSidebar={() => setIsSidebarOpen(true)}
                   />

@@ -8,47 +8,54 @@ interface SidebarProps {
   currentScreen: Screen;
   setScreen: (s: Screen) => void;
   user: any;
+  userData?: any;
+  orgName?: string;
   onLogout: () => void;
   isOpen?: boolean;
   onClose?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, user, onLogout, isOpen, onClose }) => {
-  const menuGroups = [
+export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, user, userData, orgName, onLogout, isOpen, onClose }) => {
+  const isAdmin = userData?.role === 'admin';
+  const allMenuGroups = [
     {
       label: 'General',
       items: [
-        { id: 'DASHBOARD', label: 'Dashboard', icon: Icons.Dashboard },
+        { id: 'DASHBOARD', label: 'Dashboard', icon: Icons.Dashboard, adminOnly: false },
       ]
     },
     {
       label: 'Finance',
       items: [
-        { id: 'BANK', label: 'Bank', icon: Icons.Bank },
+        { id: 'BANK', label: 'Bank', icon: Icons.Bank, adminOnly: false },
+        { id: 'LOANS', label: 'Loans', icon: Icons.Wallet, adminOnly: true },
       ]
     },
     {
       label: 'Sales',
       items: [
-        { id: 'SALES', label: 'Sales', icon: Icons.Sales },
-        { id: 'SALES_MANAGER', label: 'All Sales', icon: Icons.Ledger },
+        { id: 'SALES', label: 'Sales', icon: Icons.Sales, adminOnly: false },
+        { id: 'SALES_MANAGER', label: 'All Sales', icon: Icons.Ledger, adminOnly: true },
       ]
     },
     {
       label: 'Management',
       items: [
-        { id: 'ITEMS', label: 'Items', icon: Icons.Items },
-        { id: 'WAREHOUSE', label: 'Storage', icon: Icons.Vault },
-        { id: 'EMPLOYEE', label: 'Staff', icon: Icons.Employee },
+        { id: 'ITEMS', label: 'Items', icon: Icons.Items, adminOnly: false },
+        { id: 'WAREHOUSE', label: 'Storage', icon: Icons.Vault, adminOnly: true },
+        { id: 'EMPLOYEE', label: 'Staff', icon: Icons.Employee, adminOnly: true },
       ]
     },
     {
       label: 'Configuration',
       items: [
-        { id: 'ROLE_HIERARCHY', label: 'Permissions', icon: Icons.Hierarchy },
+        { id: 'ROLE_HIERARCHY', label: 'Permissions', icon: Icons.Hierarchy, adminOnly: true },
       ]
     }
   ];
+  const menuGroups = allMenuGroups
+    .map(g => ({ ...g, items: g.items.filter(i => isAdmin || !i.adminOnly) }))
+    .filter(g => g.items.length > 0);
 
   const SidebarContent = (
     <div className="w-64 h-full bg-white border-r border-slate-200 flex flex-col">
@@ -58,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, user
             <Icons.Vault size={24} />
           </div>
           <div>
-            <h1 className="font-headline font-bold text-sm text-on-surface">Hey Computers</h1>
+            <h1 className="font-headline font-bold text-sm text-on-surface truncate max-w-[140px]">{orgName || userData?.displayName || 'Workspace'}</h1>
             <p className="text-[10px] text-slate-400 font-medium">Work Portal</p>
           </div>
         </div>

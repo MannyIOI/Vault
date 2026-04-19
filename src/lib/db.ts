@@ -103,6 +103,7 @@ const COLLECTION_TO_TABLE: Record<string, string> = {
   organizations: 'organizations',
   bankAccounts: 'bank_accounts',
   bankTransactions: 'bank_transactions',
+  loans: 'loans',
   test: 'users', // legacy testConnection target — harmless
 };
 
@@ -288,6 +289,7 @@ const ORG_SCOPED_TABLES = new Set<string>([
   'branches',
   'warehouses',
   'bank_accounts',
+  'loans',
   'invites',
   'reconciliations',
 ]);

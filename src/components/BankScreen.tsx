@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Icons, BankAccount, BankTransaction } from '../types';
+import { Icons, BankAccount, BankTransaction, Loan } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { AsyncButton } from './AsyncButton';
 
 interface BankScreenProps {
   accounts: BankAccount[];
@@ -10,14 +11,48 @@ interface BankScreenProps {
   onAddAccount: (acc: Partial<BankAccount>) => void;
   onOpenSidebar: () => void;
   users: any[];
+  loans: Loan[];
+  onAddLoan: (loan: Partial<Loan>) => void;
+  onSettleLoan: (loan: Loan, amount?: number) => void;
+  initialTab?: 'Banks' | 'Others' | 'Loans' | 'Report';
 }
 
-export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, onAddAccount, onOpenSidebar, users }) => {
-  const [activeTab, setActiveTab] = useState('Banks');
+export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, onAddAccount, onOpenSidebar, users, loans, onAddLoan, onSettleLoan, initialTab }) => {
+  // Live balance per account = baseline + deposits - withdrawals.
+  const balanceFor = React.useCallback((acc: BankAccount) => {
+    const txs = transactions.filter(t => t.bankAccountId === acc.id);
+    const delta = txs.reduce((sum, t) => {
+      const amt = Number(t.amount || 0);
+      if (t.type === 'DEPOSIT') return sum + amt;
+      if (t.type === 'WITHDRAWAL') return sum - amt;
+      return sum;
+    }, 0);
+    return Number(acc.balance || 0) + delta;
+  }, [transactions]);
+  const [activeTab, setActiveTab] = useState<'Banks' | 'Others' | 'Loans' | 'Report'>(initialTab || 'Banks');
+  React.useEffect(() => { if (initialTab) setActiveTab(initialTab); }, [initialTab]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showLoanModal, setShowLoanModal] = useState(false);
+  const [settlingLoanId, setSettlingLoanId] = useState<string | null>(null);
+  const [settleAmount, setSettleAmount] = useState('');
   const [hiddenBalances, setHiddenBalances] = useState<Set<string>>(new Set());
-  const [newBank, setNewBank] = useState({ 
+  const [newLoan, setNewLoan] = useState<Partial<Loan>>({
+    type: 'GIVEN',
+    counterparty: '',
+    amount: 0,
+    bankAccountId: '',
+    dueDate: '',
+    notes: ''
+  });
+  const [newBank, setNewBank] = useState<{
+    bankName: string;
+    accountNumber: string;
+    balance: number;
+    color: string;
+    type: 'STORE' | 'EMPLOYEE';
+    ownerId: string;
+  }>({ 
     bankName: '', 
     accountNumber: '', 
     balance: 0, 
@@ -73,7 +108,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
         </div>
         <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-2 sm:pb-0">
           <div className="flex shrink-0 bg-white p-1 rounded-xl border border-slate-100 shadow-sm">
-            {['Banks', 'Others', 'Report'].map(tab => (
+            {(['Banks', 'Others', 'Loans', 'Report'] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -87,6 +122,11 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
           </div>
           <button 
             onClick={() => {
+              if (activeTab === 'Loans') {
+                setNewLoan({ type: 'GIVEN', counterparty: '', amount: 0, bankAccountId: '', dueDate: '', notes: '' });
+                setShowLoanModal(true);
+                return;
+              }
               setNewBank({
                 ...newBank,
                 type: activeTab === 'Others' ? 'EMPLOYEE' : 'STORE',
@@ -97,12 +137,13 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
             className="flex items-center gap-2 bg-white px-6 py-3 rounded-xl border border-slate-100 shadow-sm text-xs font-bold hover:bg-slate-50 transition-all border-none shadow-none bg-slate-100/50"
           >
             <Icons.Plus size={16} />
-            <span>Add Bank</span>
+            <span>{activeTab === 'Loans' ? 'New Loan' : 'Add Bank'}</span>
           </button>
         </div>
       </header>
 
       {/* Cards Scroll */}
+      {activeTab !== 'Loans' && (
       <div className="flex gap-4 lg:gap-6 overflow-x-auto pb-8 no-scrollbar -mx-4 px-4 h-[300px] items-center">
         {filteredAccounts.map((acc) => {
           const isHidden = hiddenBalances.has(acc.id);
@@ -136,7 +177,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
                   Total Balance
                 </p>
                 <p className="text-4xl font-headline font-bold tracking-tight">
-                  {isHidden ? '••••••' : acc.balance.toLocaleString()}
+                  {isHidden ? '••••••' : balanceFor(acc).toLocaleString()}
                   <span className="text-sm font-medium opacity-60 ml-2">{acc.currency || 'ETB'}</span>
                 </p>
               </div>
@@ -173,6 +214,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
           </div>
         )}
       </div>
+      )}
 
       {/* Employee List Pills - Screenshot match */}
       {activeTab === 'Others' && (
@@ -203,6 +245,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
       )}
 
       {/* Transactions Table */}
+      {activeTab !== 'Loans' && (
       <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-x-auto no-scrollbar">
         <table className="min-w-[800px] lg:w-full text-left">
           <thead>
@@ -252,6 +295,131 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
           </tbody>
         </table>
       </div>
+      )}
+
+      {/* Loans Section */}
+      {activeTab === 'Loans' && (() => {
+        const given = loans.filter(l => l.type === 'GIVEN');
+        const received = loans.filter(l => l.type === 'RECEIVED');
+        const totalGivenOutstanding = given.filter(l => l.status === 'OUTSTANDING').reduce((s, l) => s + Number(l.amount || 0), 0);
+        const totalReceivedOutstanding = received.filter(l => l.status === 'OUTSTANDING').reduce((s, l) => s + Number(l.amount || 0), 0);
+
+        const Section = ({ title, items, accent }: { title: string, items: Loan[], accent: string }) => (
+          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 lg:p-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-headline font-bold text-on-surface">{title}</h3>
+                <p className="text-xs text-slate-400 mt-1">{items.length} loan{items.length === 1 ? '' : 's'}</p>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${accent}`}>{title === 'Money Given' ? 'Owed to us' : 'We owe'}</span>
+            </div>
+            {items.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">
+                <Icons.Wallet size={40} className="mx-auto opacity-20 mb-2" />
+                <p className="text-sm">No loans yet</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-50">
+                {items.map(loan => {
+                  const acc = accounts.find(a => a.id === loan.bankAccountId);
+                  const isSettled = loan.status === 'SETTLED';
+                  const isPartialOpen = settlingLoanId === loan.id;
+                  return (
+                    <li key={loan.id} className="py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p className={`font-headline font-bold text-sm truncate ${isSettled ? 'text-slate-400 line-through' : 'text-on-surface'}`}>{loan.counterparty}</p>
+                        <p className={`text-xs mt-1 ${isSettled ? 'text-slate-300 line-through' : 'text-slate-400'}`}>
+                          {new Date(loan.date).toLocaleDateString()}
+                          {loan.dueDate ? ` · due ${new Date(loan.dueDate).toLocaleDateString()}` : ''}
+                          {acc ? ` · ${acc.bankName}` : ''}
+                        </p>
+                        {loan.notes && <p className={`text-xs mt-1 truncate ${isSettled ? 'text-slate-300 line-through' : 'text-slate-500'}`}>{loan.notes}</p>}
+                      </div>
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <p className={`font-headline font-bold text-sm ${isSettled ? 'text-slate-400 line-through' : 'text-on-surface'}`}>
+                          {Number(loan.amount).toLocaleString()} ETB
+                        </p>
+                        {isSettled ? (
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-400">
+                            <Icons.CheckCircle size={12} /> Settled
+                          </span>
+                        ) : isPartialOpen ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              autoFocus
+                              value={settleAmount}
+                              onChange={(e) => setSettleAmount(e.target.value)}
+                              placeholder={`Max ${Number(loan.amount).toLocaleString()}`}
+                              className="w-32 bg-slate-50 border-none rounded-lg px-3 py-2 text-xs font-bold text-on-surface focus:ring-2 focus:ring-emerald-500/20"
+                            />
+                            <button
+                              onClick={() => {
+                                const a = Number(settleAmount);
+                                if (!a || a <= 0 || a > Number(loan.amount)) return;
+                                onSettleLoan(loan, a);
+                                setSettlingLoanId(null);
+                                setSettleAmount('');
+                              }}
+                              className="px-3 py-2 rounded-lg bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-700 transition-colors"
+                            >
+                              Apply
+                            </button>
+                            <button
+                              onClick={() => { setSettlingLoanId(null); setSettleAmount(''); }}
+                              className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors"
+                              aria-label="Cancel"
+                            >
+                              <Icons.Close size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => { setSettlingLoanId(loan.id); setSettleAmount(''); }}
+                              className="px-3 py-1.5 rounded-full bg-white border border-emerald-200 text-emerald-700 text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-50 transition-colors"
+                            >
+                              Partial
+                            </button>
+                            <AsyncButton
+                              onClick={async () => { await onSettleLoan(loan); }}
+                              loadingLabel="Settling…"
+                              successLabel="Settled"
+                              icon={<Icons.CheckCircle size={12} />}
+                              className="px-3 py-1.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-700 shadow-sm"
+                            >
+                              Mark Settled
+                            </AsyncButton>
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        );
+
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-emerald-50 border border-emerald-100 rounded-[2rem] p-6">
+                <p className="text-[10px] uppercase font-bold tracking-widest text-emerald-700">Given · Outstanding</p>
+                <p className="font-headline font-bold text-3xl text-emerald-800 mt-2">{totalGivenOutstanding.toLocaleString()} <span className="text-sm opacity-60">ETB</span></p>
+              </div>
+              <div className="bg-amber-50 border border-amber-100 rounded-[2rem] p-6">
+                <p className="text-[10px] uppercase font-bold tracking-widest text-amber-700">Received · Outstanding</p>
+                <p className="font-headline font-bold text-3xl text-amber-800 mt-2">{totalReceivedOutstanding.toLocaleString()} <span className="text-sm opacity-60">ETB</span></p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Section title="Money Given" items={given} accent="bg-emerald-100 text-emerald-700" />
+              <Section title="Money Received" items={received} accent="bg-amber-100 text-amber-700" />
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Add Bank Modal */}
       <AnimatePresence>
@@ -329,18 +497,139 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
 
                 <div className="h-4" />
 
-                <button 
+                <AsyncButton
                   disabled={newBank.type === 'EMPLOYEE' && !newBank.ownerId}
-                  onClick={() => {
-                    onAddAccount(newBank);
+                  onClick={async () => {
+                    await onAddAccount(newBank);
                     setShowAddModal(false);
                   }}
-                  className={`w-full bg-[#0D1C32] text-white py-5 rounded-[1.5rem] font-headline font-bold text-lg hover:opacity-90 active:scale-95 transition-all shadow-xl shadow-[#0D1C32]/20 ${
-                    (newBank.type === 'EMPLOYEE' && !newBank.ownerId) ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
+                  loadingLabel="Creating…"
+                  successLabel="Created"
+                  className="w-full bg-[#0D1C32] text-white py-5 rounded-[1.5rem] font-headline font-bold text-lg hover:opacity-90 active:scale-95 shadow-xl shadow-[#0D1C32]/20"
                 >
                   Confirm & Create
+                </AsyncButton>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Add Loan Modal */}
+      <AnimatePresence>
+        {showLoanModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLoanModal(false)}
+              className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] sm:w-[480px] bg-white rounded-[2.5rem] z-[210] p-6 sm:p-10 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h3 className="text-2xl font-headline font-bold text-on-surface">Record a Loan</h3>
+                  <p className="text-xs text-slate-400 mt-1">Track money given to or received from a counterparty.</p>
+                </div>
+                <button onClick={() => setShowLoanModal(false)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                  <Icons.Close size={24} />
                 </button>
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['GIVEN','RECEIVED'] as const).map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setNewLoan({ ...newLoan, type: t })}
+                        className={`py-3 rounded-2xl text-xs font-bold transition-all ${
+                          newLoan.type === t ? 'bg-[#0D1C32] text-white' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                        }`}
+                      >
+                        {t === 'GIVEN' ? 'I Gave a Loan' : 'I Received a Loan'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Counterparty</label>
+                  <input
+                    type="text"
+                    list="loan-counterparty-suggestions"
+                    value={newLoan.counterparty || ''}
+                    onChange={e => setNewLoan({ ...newLoan, counterparty: e.target.value })}
+                    placeholder="Name of person or business"
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/5"
+                  />
+                  <datalist id="loan-counterparty-suggestions">
+                    {Array.from(new Set(loans.map(l => l.counterparty).filter(Boolean))).map(name => (
+                      <option key={name} value={name} />
+                    ))}
+                  </datalist>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Amount (ETB)</label>
+                  <input
+                    type="number"
+                    value={newLoan.amount || 0}
+                    onChange={e => setNewLoan({ ...newLoan, amount: Number(e.target.value) })}
+                    placeholder="0.00"
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/5"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Bank Account</label>
+                  <select
+                    value={newLoan.bankAccountId || ''}
+                    onChange={e => setNewLoan({ ...newLoan, bankAccountId: e.target.value })}
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/5"
+                  >
+                    <option value="">— None / Cash —</option>
+                    {accounts.filter(a => a.type === 'STORE' || !a.type).map(a => (
+                      <option key={a.id} value={a.id}>{a.bankName} · {a.accountNumber}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Due Date (optional)</label>
+                  <input
+                    type="date"
+                    value={newLoan.dueDate || ''}
+                    onChange={e => setNewLoan({ ...newLoan, dueDate: e.target.value })}
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/5"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Notes (optional)</label>
+                  <textarea
+                    value={newLoan.notes || ''}
+                    onChange={e => setNewLoan({ ...newLoan, notes: e.target.value })}
+                    rows={3}
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/5"
+                  />
+                </div>
+
+                <AsyncButton
+                  disabled={!newLoan.counterparty || !newLoan.amount}
+                  onClick={async () => {
+                    await onAddLoan(newLoan);
+                    setShowLoanModal(false);
+                  }}
+                  loadingLabel="Recording…"
+                  successLabel="Recorded"
+                  className="w-full bg-[#0D1C32] text-white py-5 rounded-[1.5rem] font-headline font-bold text-lg hover:opacity-90 active:scale-95 shadow-xl shadow-[#0D1C32]/20"
+                >
+                  Record Loan
+                </AsyncButton>
               </div>
             </motion.div>
           </>

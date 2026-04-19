@@ -96,10 +96,10 @@ export const Icons = {
 
 export type Screen = 
   | 'LOGIN' 
-  | 'BRANCH_SELECT' 
   | 'DASHBOARD' 
   | 'VAULT_DASHBOARD' // Old dashboard
   | 'BANK' 
+  | 'LOANS' 
   | 'SALES' 
   | 'SALES_MANAGER' 
   | 'ITEMS' 
@@ -180,6 +180,19 @@ export interface BankTransaction {
   project: string;
   to: string;
   date: string;
+}
+
+export interface Loan {
+  id: string;
+  type: 'GIVEN' | 'RECEIVED';
+  counterparty: string;
+  amount: number;
+  bankAccountId?: string;
+  status: 'OUTSTANDING' | 'SETTLED';
+  date: string;
+  dueDate?: string;
+  notes?: string;
+  organizationId?: string;
 }
 
 export const MOCK_TRANSACTIONS: Transaction[] = [
