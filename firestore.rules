@@ -1,0 +1,170 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerified() && (
+        request.auth.token.email == "aman.teferi.80@gmail.com" ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isClerk() {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'none') == 'clerk';
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Blueprints ---
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.role in ['admin', 'clerk', 'warehouse_manager'] &&
+             (!('branch' in data) || (data.branch is string && data.branch.size() <= 100));
+    }
+
+    function isValidInventoryItem(data) {
+      return data.keys().hasAll(['name', 'imei', 'valuation', 'status', 'category', 'branch']) &&
+             data.name is string && data.name.size() <= 200 &&
+             data.imei is string && data.imei.size() >= 8 && data.imei.size() <= 100 &&
+             data.valuation is number &&
+             data.status in ['IN_STOCK', 'LENT', 'SOLD', 'IN_TRANSIT'] &&
+             data.category in ['PHONES', 'TABLETS', 'ACCESSORIES'] &&
+             data.branch is string && data.branch.size() <= 100;
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['type', 'item', 'amount', 'timestamp', 'clerk', 'clerkId', 'status']) &&
+             data.type in ['SALE', 'PURCHASE', 'LENT', 'BORROWED', 'EXPENSE', 'VOID', 'RETURNED', 'TRANSFER'] &&
+             data.amount is number &&
+             data.clerkId == request.auth.uid &&
+             data.clerk is string && data.clerk.size() <= 100 &&
+             data.status in ['SETTLED', 'PENDING', 'VOIDED', 'COMPLETED', 'IN_TRANSIT', 'APPROVED'];
+    }
+
+    function isValidBankAccount(data) {
+      return data.keys().hasAll(['bankName', 'accountNumber', 'balance']) &&
+             data.bankName is string && data.bankName.size() <= 100 &&
+             data.accountNumber is string && data.accountNumber.size() >= 5 && data.accountNumber.size() <= 50 &&
+             data.balance is number;
+    }
+
+    function isValidBankTransaction(data) {
+      return data.keys().hasAll(['bankAccountId', 'type', 'amount', 'date']) &&
+             data.bankAccountId is string && isValidId(data.bankAccountId) &&
+             data.type in ['DEPOSIT', 'WITHDRAWAL', 'TRANSFER'] &&
+             data.amount is number &&
+             data.date is string;
+    }
+
+    function isValidWarehouse(data) {
+      return data.keys().hasAll(['name', 'location']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.location is string && data.location.size() <= 200;
+    }
+
+    // --- Collections Rules ---
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isVerified() && isValidUser(incoming()) && incoming().uid == request.auth.uid && incoming().role == 'clerk' && isValidId(userId);
+      allow update: if (isAdmin() || (isOwner(userId) && incoming().role == existing().role && incoming().uid == existing().uid)) && isValidUser(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /inventory/{itemId} {
+      allow read: if isSignedIn();
+      allow create: if (isAdmin() || isClerk()) && isValidInventoryItem(incoming()) && isValidId(itemId);
+      allow update: if (isAdmin() || isClerk()) && isValidInventoryItem(incoming()) && 
+                    (existing().status != 'SOLD' || isAdmin()); 
+      allow delete: if isAdmin();
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isSignedIn();
+      allow create: if (isAdmin() || isClerk()) && isValidTransaction(incoming()) && isValidId(transactionId);
+      allow update: if isAdmin(); 
+      allow delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    match /branches/{branchId} {
+      allow read: if isSignedIn();
+      allow create: if (isAdmin() || isClerk()) && isValidId(branchId);
+      allow update, delete: if isAdmin();
+    }
+
+    match /invites/{inviteId} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.token.email == resource.data.email);
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (isSignedIn() && request.auth.token.email == resource.data.email);
+      allow delete: if isAdmin();
+    }
+
+    match /reconciliations/{reconciliationId} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.clerkId);
+      allow create: if (isAdmin() || isClerk()) && incoming().clerkId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /bankAccounts/{accountId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidBankAccount(incoming()) && isValidId(accountId);
+      allow update: if isAdmin() && isValidBankAccount(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /bankTransactions/{transactionId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidBankTransaction(incoming()) && isValidId(transactionId) &&
+                      exists(/databases/$(database)/documents/bankAccounts/$(incoming().bankAccountId));
+      allow update: if isAdmin() && isValidBankTransaction(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /warehouses/{warehouseId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidWarehouse(incoming()) && isValidId(warehouseId);
+      allow update: if isAdmin() && isValidWarehouse(incoming());
+      allow delete: if isAdmin();
+    }
+  }
+}
