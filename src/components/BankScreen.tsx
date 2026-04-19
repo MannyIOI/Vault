@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Icons, BankAccount, BankTransaction, Loan } from '../types';
+import { Icons, BankAccount, BankTransaction, Loan, InventoryItem } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { AsyncButton } from './AsyncButton';
 
@@ -15,9 +15,13 @@ interface BankScreenProps {
   onAddLoan: (loan: Partial<Loan>) => void;
   onSettleLoan: (loan: Loan, amount?: number) => void;
   initialTab?: 'Banks' | 'Others' | 'Loans' | 'Report';
+  trustContacts?: string[];
+  inventory?: InventoryItem[];
+  onReturnItem?: (item: InventoryItem) => void;
+  onSettleItem?: (item: InventoryItem, cashReceived: number, bankAccountId?: string) => void;
 }
 
-export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, onAddAccount, onOpenSidebar, users, loans, onAddLoan, onSettleLoan, initialTab }) => {
+export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, onAddAccount, onOpenSidebar, users, loans, onAddLoan, onSettleLoan, initialTab, trustContacts = [], inventory = [], onReturnItem, onSettleItem }) => {
   // Live balance per account = baseline + deposits - withdrawals.
   const balanceFor = React.useCallback((acc: BankAccount) => {
     const txs = transactions.filter(t => t.bankAccountId === acc.id);
@@ -36,6 +40,11 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
   const [showLoanModal, setShowLoanModal] = useState(false);
   const [settlingLoanId, setSettlingLoanId] = useState<string | null>(null);
   const [settleAmount, setSettleAmount] = useState('');
+  const [loanSearch, setLoanSearch] = useState('');
+  const [loanFilter, setLoanFilter] = useState<'ALL' | 'CASH' | 'ITEM' | 'OUTSTANDING' | 'SETTLED'>('ALL');
+  const [settlingItemId, setSettlingItemId] = useState<string | null>(null);
+  const [itemSettleAmount, setItemSettleAmount] = useState('');
+  const [itemSettleAccount, setItemSettleAccount] = useState('');
   const [hiddenBalances, setHiddenBalances] = useState<Set<string>>(new Set());
   const [newLoan, setNewLoan] = useState<Partial<Loan>>({
     type: 'GIVEN',
@@ -82,8 +91,9 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
       return accounts.filter(acc => acc.type === 'STORE' || !acc.type);
     }
     if (activeTab === 'Others') {
-      if (!selectedEmployeeId) return [];
-      return accounts.filter(acc => acc.type === 'EMPLOYEE' && acc.ownerId === selectedEmployeeId);
+      const employeeAccounts = accounts.filter(acc => acc.type === 'EMPLOYEE');
+      if (!selectedEmployeeId) return employeeAccounts;
+      return employeeAccounts.filter(acc => acc.ownerId === selectedEmployeeId);
     }
     return accounts;
   }, [accounts, activeTab, selectedEmployeeId]);
@@ -208,9 +218,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
         {filteredAccounts.length === 0 && (
           <div className="min-w-[280px] sm:min-w-[420px] h-[260px] bg-slate-50 border border-slate-100 rounded-[2.5rem] flex flex-col justify-center items-center gap-4 text-slate-400">
              <Icons.Bank size={48} className="opacity-10" />
-             <p className="text-sm font-medium opacity-60">
-               {activeTab === 'Others' && !selectedEmployeeId ? 'Select an employee' : 'No accounts found'}
-             </p>
+             <p className="text-sm font-medium opacity-60">No accounts found</p>
           </div>
         )}
       </div>
@@ -219,6 +227,21 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
       {/* Employee List Pills - Screenshot match */}
       {activeTab === 'Others' && (
         <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 mb-8 -mx-4 px-4">
+           <button
+             onClick={() => setSelectedEmployeeId(null)}
+             className={`flex items-center gap-3 px-1 py-1 pr-6 rounded-full border transition-all shrink-0 ${
+               !selectedEmployeeId
+                 ? 'bg-white border-primary/10 shadow-lg text-primary'
+                 : 'bg-white/50 border-slate-100 text-slate-500 hover:bg-white'
+             }`}
+           >
+             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[10px] font-bold border ${
+               !selectedEmployeeId ? 'bg-primary text-white border-primary' : 'bg-slate-100 border-slate-200'
+             }`}>
+               ALL
+             </div>
+             <span className="text-xs font-bold whitespace-nowrap">All Employees</span>
+           </button>
            {users.map((emp) => {
              const initials = emp.displayName?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || '??';
              const isSelected = selectedEmployeeId === emp.id;
@@ -228,12 +251,12 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
                  onClick={() => setSelectedEmployeeId(emp.id)}
                  className={`flex items-center gap-3 px-1 py-1 pr-6 rounded-full border transition-all shrink-0 ${
                    isSelected 
-                     ? 'bg-white border-[#0D1C32]/10 shadow-lg text-[#0D1C32]' 
+                     ? 'bg-white border-primary/10 shadow-lg text-primary' 
                      : 'bg-white/50 border-slate-100 text-slate-500 hover:bg-white'
                  }`}
                >
                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[10px] font-bold border ${
-                   isSelected ? 'bg-[#0D1C32] text-white border-[#0D1C32]' : 'bg-slate-100 border-slate-200'
+                   isSelected ? 'bg-primary text-white border-primary' : 'bg-slate-100 border-slate-200'
                  }`}>
                    {initials}
                  </div>
@@ -299,12 +322,38 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
 
       {/* Loans Section */}
       {activeTab === 'Loans' && (() => {
-        const given = loans.filter(l => l.type === 'GIVEN');
-        const received = loans.filter(l => l.type === 'RECEIVED');
-        const totalGivenOutstanding = given.filter(l => l.status === 'OUTSTANDING').reduce((s, l) => s + Number(l.amount || 0), 0);
-        const totalReceivedOutstanding = received.filter(l => l.status === 'OUTSTANDING').reduce((s, l) => s + Number(l.amount || 0), 0);
+        const lentItems = inventory.filter(i => i.status === 'LENT' || i.status === 'SOLD_BY_RECIPIENT');
+        const matchesSearch = (text: string) => !loanSearch || text.toLowerCase().includes(loanSearch.toLowerCase());
+        const showCash = loanFilter === 'ALL' || loanFilter === 'CASH' || loanFilter === 'OUTSTANDING' || loanFilter === 'SETTLED';
+        const showItems = loanFilter === 'ALL' || loanFilter === 'ITEM' || loanFilter === 'OUTSTANDING' || loanFilter === 'SETTLED';
+        const passesStatus = (settled: boolean) => {
+          if (loanFilter === 'OUTSTANDING') return !settled;
+          if (loanFilter === 'SETTLED') return settled;
+          return true;
+        };
 
-        const Section = ({ title, items, accent }: { title: string, items: Loan[], accent: string }) => (
+        const cashGiven = showCash ? loans.filter(l =>
+          l.type === 'GIVEN' &&
+          passesStatus(l.status === 'SETTLED') &&
+          (matchesSearch(l.counterparty || '') || matchesSearch(l.notes || ''))
+        ) : [];
+        const cashReceived = showCash ? loans.filter(l =>
+          l.type === 'RECEIVED' &&
+          passesStatus(l.status === 'SETTLED') &&
+          (matchesSearch(l.counterparty || '') || matchesSearch(l.notes || ''))
+        ) : [];
+        const itemLoans = showItems ? lentItems.filter(i =>
+          passesStatus(i.status === 'SOLD_BY_RECIPIENT') &&
+          (matchesSearch(i.name || '') || matchesSearch(i.lentTo || '') || matchesSearch(i.imei || ''))
+        ) : [];
+
+        const totalGivenOutstanding = loans.filter(l => l.type === 'GIVEN' && l.status === 'OUTSTANDING').reduce((s, l) => s + Number(l.amount || 0), 0);
+        const totalReceivedOutstanding = loans.filter(l => l.type === 'RECEIVED' && l.status === 'OUTSTANDING').reduce((s, l) => s + Number(l.amount || 0), 0);
+        const totalItemsOutstanding = lentItems.filter(i => i.status === 'LENT').reduce((s, i) => s + Number(i.valuation || 0), 0);
+
+        const ownerName = (uid?: string) => users.find(u => u.id === uid || u.uid === uid)?.displayName || 'Staff';
+
+        const CashSection = ({ title, items, accent }: { title: string, items: Loan[], accent: string }) => (
           <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 lg:p-8">
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -316,7 +365,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
             {items.length === 0 ? (
               <div className="text-center py-12 text-slate-400">
                 <Icons.Wallet size={40} className="mx-auto opacity-20 mb-2" />
-                <p className="text-sm">No loans yet</p>
+                <p className="text-sm">No matching loans</p>
               </div>
             ) : (
               <ul className="divide-y divide-slate-50">
@@ -401,21 +450,190 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
           </div>
         );
 
+        const ItemSection = () => (
+          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 lg:p-8 lg:col-span-2">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-headline font-bold text-on-surface">Items Lent Out</h3>
+                <p className="text-xs text-slate-400 mt-1">{itemLoans.length} item{itemLoans.length === 1 ? '' : 's'}</p>
+              </div>
+              <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">Owed to us</span>
+            </div>
+            {itemLoans.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">
+                <Icons.LendPhone size={40} className="mx-auto opacity-20 mb-2" />
+                <p className="text-sm">No matching item loans</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-50">
+                {itemLoans.map(item => {
+                  const isReturned = item.status === 'SOLD_BY_RECIPIENT';
+                  const isSettling = settlingItemId === item.id;
+                  return (
+                    <li key={item.id} className="py-4 flex flex-col gap-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className={`font-headline font-bold text-sm truncate ${isReturned ? 'text-slate-400 line-through' : 'text-on-surface'}`}>{item.name}</p>
+                          <p className={`text-xs mt-1 ${isReturned ? 'text-slate-300 line-through' : 'text-slate-400'}`}>
+                            {item.lentTo ? `to ${item.lentTo}` : 'Lent out'}
+                            {item.imei ? ` · IMEI ${item.imei}` : ''}
+                            {item.expectedReturnDate ? ` · due ${new Date(item.expectedReturnDate).toLocaleDateString()}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-2 shrink-0">
+                          <p className={`font-headline font-bold text-sm ${isReturned ? 'text-slate-400 line-through' : 'text-on-surface'}`}>
+                            {Number(item.valuation || 0).toLocaleString()} ETB
+                          </p>
+                          {isReturned ? (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-400">
+                              <Icons.CheckCircle size={12} /> Settled
+                            </span>
+                          ) : (
+                            <div className="flex gap-2">
+                              {onReturnItem && (
+                                <AsyncButton
+                                  onClick={async () => { await onReturnItem(item); }}
+                                  loadingLabel="Returning…"
+                                  successLabel="Returned"
+                                  icon={<Icons.CheckCircle size={12} />}
+                                  className="px-3 py-1.5 rounded-full bg-amber-600 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-amber-700 shadow-sm"
+                                >
+                                  Mark Returned
+                                </AsyncButton>
+                              )}
+                              {onSettleItem && (
+                                <button
+                                  onClick={() => {
+                                    setSettlingItemId(item.id);
+                                    setItemSettleAmount(String(item.valuation || 0));
+                                    setItemSettleAccount('');
+                                  }}
+                                  className="px-3 py-1.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-700 shadow-sm"
+                                >
+                                  Settle with Cash
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {isSettling && onSettleItem && (
+                        <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 space-y-3">
+                          <p className="text-xs font-bold text-emerald-900">Confirm cash settlement for {item.name}</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[10px] uppercase font-bold text-emerald-600 tracking-widest block mb-1">Amount Received (ETB)</label>
+                              <input
+                                type="number"
+                                autoFocus
+                                value={itemSettleAmount}
+                                onChange={e => setItemSettleAmount(e.target.value)}
+                                placeholder={String(item.valuation || 0)}
+                                className="w-full bg-white border-none rounded-lg px-3 py-2 text-xs font-bold text-on-surface focus:ring-2 focus:ring-emerald-500/20"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] uppercase font-bold text-emerald-600 tracking-widest block mb-1">Deposit to Account</label>
+                              <select
+                                value={itemSettleAccount}
+                                onChange={e => setItemSettleAccount(e.target.value)}
+                                className="w-full bg-white border-none rounded-lg px-3 py-2 text-xs font-bold text-on-surface focus:ring-2 focus:ring-emerald-500/20"
+                              >
+                                <option value="">— None (cash on hand) —</option>
+                                {accounts.filter(a => a.type === 'STORE' || !a.type).length > 0 && (
+                                  <optgroup label="Store Accounts">
+                                    {accounts.filter(a => a.type === 'STORE' || !a.type).map(a => (
+                                      <option key={a.id} value={a.id}>{a.bankName}</option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                                {accounts.filter(a => a.type === 'EMPLOYEE').length > 0 && (
+                                  <optgroup label="Staff Accounts">
+                                    {accounts.filter(a => a.type === 'EMPLOYEE').map(a => (
+                                      <option key={a.id} value={a.id}>{a.bankName} · {ownerName(a.ownerId)}</option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                              </select>
+                            </div>
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => { setSettlingItemId(null); setItemSettleAmount(''); setItemSettleAccount(''); }}
+                              className="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:bg-slate-100 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => {
+                                const a = Number(itemSettleAmount) || Number(item.valuation || 0);
+                                onSettleItem(item, a, itemSettleAccount || undefined);
+                                setSettlingItemId(null);
+                                setItemSettleAmount('');
+                                setItemSettleAccount('');
+                              }}
+                              className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-700 transition-colors"
+                            >
+                              Confirm Settlement
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        );
+
         return (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-emerald-50 border border-emerald-100 rounded-[2rem] p-6">
-                <p className="text-[10px] uppercase font-bold tracking-widest text-emerald-700">Given · Outstanding</p>
+                <p className="text-[10px] uppercase font-bold tracking-widest text-emerald-700">Cash Given · Outstanding</p>
                 <p className="font-headline font-bold text-3xl text-emerald-800 mt-2">{totalGivenOutstanding.toLocaleString()} <span className="text-sm opacity-60">ETB</span></p>
               </div>
               <div className="bg-amber-50 border border-amber-100 rounded-[2rem] p-6">
-                <p className="text-[10px] uppercase font-bold tracking-widest text-amber-700">Received · Outstanding</p>
+                <p className="text-[10px] uppercase font-bold tracking-widest text-amber-700">Cash Received · Outstanding</p>
                 <p className="font-headline font-bold text-3xl text-amber-800 mt-2">{totalReceivedOutstanding.toLocaleString()} <span className="text-sm opacity-60">ETB</span></p>
               </div>
+              <div className="bg-blue-50 border border-blue-100 rounded-[2rem] p-6">
+                <p className="text-[10px] uppercase font-bold tracking-widest text-blue-700">Items Lent · Outstanding</p>
+                <p className="font-headline font-bold text-3xl text-blue-800 mt-2">{totalItemsOutstanding.toLocaleString()} <span className="text-sm opacity-60">ETB</span></p>
+              </div>
             </div>
+
+            <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+              <div className="relative flex-1">
+                <Icons.Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={loanSearch}
+                  onChange={e => setLoanSearch(e.target.value)}
+                  placeholder="Search by counterparty, item, IMEI or notes…"
+                  className="w-full bg-slate-50 border-none rounded-xl pl-11 pr-4 py-3 text-xs font-bold text-on-surface focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                />
+              </div>
+              <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                {(['ALL', 'CASH', 'ITEM', 'OUTSTANDING', 'SETTLED'] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setLoanFilter(f)}
+                    className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shrink-0 ${
+                      loanFilter === f ? 'bg-primary text-white shadow-md' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Section title="Money Given" items={given} accent="bg-emerald-100 text-emerald-700" />
-              <Section title="Money Received" items={received} accent="bg-amber-100 text-amber-700" />
+              {showCash && <CashSection title="Money Given" items={cashGiven} accent="bg-emerald-100 text-emerald-700" />}
+              {showCash && <CashSection title="Money Received" items={cashReceived} accent="bg-amber-100 text-amber-700" />}
+              {showItems && <ItemSection />}
             </div>
           </div>
         );
@@ -458,7 +676,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
                     value={newBank.bankName}
                     onChange={e => setNewBank({...newBank, bankName: e.target.value})}
                     placeholder="e.g. CBE, Dashen..."
-                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/5"
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-primary/5"
                   />
                 </div>
                 <div>
@@ -468,7 +686,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
                     value={newBank.accountNumber}
                     onChange={e => setNewBank({...newBank, accountNumber: e.target.value})}
                     placeholder="Account Number"
-                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/5"
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-primary/5"
                   />
                 </div>
                 <div>
@@ -478,7 +696,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
                     value={newBank.balance}
                     onChange={e => setNewBank({...newBank, balance: Number(e.target.value)})}
                     placeholder="0.00"
-                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/5"
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-primary/5"
                   />
                 </div>
                 <div>
@@ -505,7 +723,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
                   }}
                   loadingLabel="Creating…"
                   successLabel="Created"
-                  className="w-full bg-[#0D1C32] text-white py-5 rounded-[1.5rem] font-headline font-bold text-lg hover:opacity-90 active:scale-95 shadow-xl shadow-[#0D1C32]/20"
+                  className="w-full bg-primary text-white py-5 rounded-[1.5rem] font-headline font-bold text-lg hover:opacity-90 active:scale-95 shadow-xl shadow-primary/20"
                 >
                   Confirm & Create
                 </AsyncButton>
@@ -552,7 +770,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
                         type="button"
                         onClick={() => setNewLoan({ ...newLoan, type: t })}
                         className={`py-3 rounded-2xl text-xs font-bold transition-all ${
-                          newLoan.type === t ? 'bg-[#0D1C32] text-white' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                          newLoan.type === t ? 'bg-primary text-white' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
                         }`}
                       >
                         {t === 'GIVEN' ? 'I Gave a Loan' : 'I Received a Loan'}
@@ -568,10 +786,13 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
                     value={newLoan.counterparty || ''}
                     onChange={e => setNewLoan({ ...newLoan, counterparty: e.target.value })}
                     placeholder="Name of person or business"
-                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/5"
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-primary/5"
                   />
                   <datalist id="loan-counterparty-suggestions">
-                    {Array.from(new Set(loans.map(l => l.counterparty).filter(Boolean))).map(name => (
+                    {Array.from(new Set([
+                      ...loans.map(l => l.counterparty).filter(Boolean),
+                      ...trustContacts,
+                    ])).map(name => (
                       <option key={name} value={name} />
                     ))}
                   </datalist>
@@ -583,7 +804,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
                     value={newLoan.amount || 0}
                     onChange={e => setNewLoan({ ...newLoan, amount: Number(e.target.value) })}
                     placeholder="0.00"
-                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/5"
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-primary/5"
                   />
                 </div>
                 <div>
@@ -591,12 +812,32 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
                   <select
                     value={newLoan.bankAccountId || ''}
                     onChange={e => setNewLoan({ ...newLoan, bankAccountId: e.target.value })}
-                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/5"
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-primary/5"
                   >
                     <option value="">— None / Cash —</option>
-                    {accounts.filter(a => a.type === 'STORE' || !a.type).map(a => (
-                      <option key={a.id} value={a.id}>{a.bankName} · {a.accountNumber}</option>
-                    ))}
+                    {(() => {
+                      const storeAccounts    = accounts.filter(a => a.type === 'STORE' || !a.type);
+                      const employeeAccounts = accounts.filter(a => a.type === 'EMPLOYEE');
+                      const ownerName = (uid?: string) => users.find(u => u.id === uid || u.uid === uid)?.displayName || 'Staff';
+                      return (
+                        <>
+                          {storeAccounts.length > 0 && (
+                            <optgroup label="Store Accounts">
+                              {storeAccounts.map(a => (
+                                <option key={a.id} value={a.id}>{a.bankName} · {a.accountNumber}</option>
+                              ))}
+                            </optgroup>
+                          )}
+                          {employeeAccounts.length > 0 && (
+                            <optgroup label="Staff Accounts">
+                              {employeeAccounts.map(a => (
+                                <option key={a.id} value={a.id}>{ownerName(a.ownerId)} — {a.bankName} · {a.accountNumber}</option>
+                              ))}
+                            </optgroup>
+                          )}
+                        </>
+                      );
+                    })()}
                   </select>
                 </div>
                 <div>
@@ -605,7 +846,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
                     type="date"
                     value={newLoan.dueDate || ''}
                     onChange={e => setNewLoan({ ...newLoan, dueDate: e.target.value })}
-                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/5"
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-primary/5"
                   />
                 </div>
                 <div>
@@ -614,7 +855,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
                     value={newLoan.notes || ''}
                     onChange={e => setNewLoan({ ...newLoan, notes: e.target.value })}
                     rows={3}
-                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/5"
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-primary/5"
                   />
                 </div>
 
@@ -626,7 +867,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
                   }}
                   loadingLabel="Recording…"
                   successLabel="Recorded"
-                  className="w-full bg-[#0D1C32] text-white py-5 rounded-[1.5rem] font-headline font-bold text-lg hover:opacity-90 active:scale-95 shadow-xl shadow-[#0D1C32]/20"
+                  className="w-full bg-primary text-white py-5 rounded-[1.5rem] font-headline font-bold text-lg hover:opacity-90 active:scale-95 shadow-xl shadow-primary/20"
                 >
                   Record Loan
                 </AsyncButton>

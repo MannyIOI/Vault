@@ -21,6 +21,63 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
   useEffect(() => { onScanRef.current = onScan; }, [onScan]);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
+  // Persist a single AudioContext for the lifetime of the scanner so we can
+  // prime it inside the user gesture that opened the modal — otherwise iOS
+  // and recent Chrome leave new AudioContexts suspended until the next
+  // user input, which silences the chime fired from the scan callback.
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  useEffect(() => {
+    try {
+      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx: AudioContext = new Ctx();
+      audioCtxRef.current = ctx;
+      // Play a zero-amplitude tick to "warm up" the context. This is
+      // enough on Safari to keep it in the running state.
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.01);
+    } catch { /* audio unavailable; ignore */ }
+    return () => {
+      try { audioCtxRef.current?.close(); } catch { /* ignore */ }
+      audioCtxRef.current = null;
+    };
+  }, []);
+
+  // Quick "ka-ching" cash-register-style chime, synthesized on the fly so we
+  // don't have to ship an audio asset.
+  const playCashRegisterSound = () => {
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+    const start = () => {
+      const playTone = (freq: number, offset: number, duration: number, peak = 0.5, type: OscillatorType = 'triangle') => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        const t0 = ctx.currentTime + offset;
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(peak, t0 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + duration + 0.02);
+      };
+      // Bright "ka-ching": E6 then G6, a tiny bit of A6 sparkle on top.
+      playTone(1318.5, 0,    0.18);
+      playTone(1567.9, 0.09, 0.28);
+      playTone(1760,   0.10, 0.22, 0.25, 'sine');
+    };
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(start).catch(() => {/* ignore */});
+    } else {
+      start();
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     let didFire = false;
@@ -44,6 +101,7 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
             // requested close.
             if (didFire) return;
             didFire = true;
+            playCashRegisterSound();
             onScanRef.current(decodedText);
             onCloseRef.current();
           },
@@ -71,7 +129,7 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
   return (
     <div className="fixed inset-0 bg-black/90 z-[200] flex flex-col items-center justify-center p-6 backdrop-blur-md">
       <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl relative">
-        <div className="p-4 bg-[#0D1C32] text-white flex justify-between items-center">
+        <div className="p-4 bg-primary text-white flex justify-between items-center">
           <h3 className="font-headline font-bold">Scan IMEI / QR Code</h3>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
             <Icons.Close size={24} />

@@ -35,7 +35,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, user
       label: 'Sales',
       items: [
         { id: 'SALES', label: 'Sales', icon: Icons.Sales, adminOnly: false },
-        { id: 'SALES_MANAGER', label: 'All Sales', icon: Icons.Ledger, adminOnly: true },
+        { id: 'LEND', label: 'Lend Item', icon: Icons.LendPhone, adminOnly: false },
+        { id: 'SALES_MANAGER', label: 'All Transactions', icon: Icons.Ledger, adminOnly: true },
       ]
     },
     {
@@ -61,7 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, user
     <div className="w-64 h-full bg-white border-r border-slate-200 flex flex-col">
       <div className="p-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#0D1C32] rounded-xl flex items-center justify-center text-white">
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white">
             <Icons.Vault size={24} />
           </div>
           <div>
@@ -95,11 +96,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, user
                     }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
                       isActive 
-                        ? 'bg-slate-100 text-[#0D1C32] font-bold' 
+                        ? 'bg-slate-100 text-primary font-bold' 
                         : 'text-slate-500 hover:bg-slate-50'
                     }`}
                   >
-                    <Icon size={18} className={isActive ? 'text-[#0D1C32]' : 'text-slate-400'} />
+                    <Icon size={18} className={isActive ? 'text-primary' : 'text-slate-400'} />
                     <span className="text-sm">{item.label}</span>
                   </button>
                 );
@@ -110,7 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, user
       </nav>
 
       <div className="p-4 border-t border-slate-100 flex flex-col gap-2">
-        <button className="flex items-center gap-3 px-3 py-2 text-slate-500 hover:text-[#0D1C32] transition-colors w-full">
+        <button className="flex items-center gap-3 px-3 py-2 text-slate-500 hover:text-primary transition-colors w-full">
           <Icons.Info size={18} />
           <span className="text-sm">Support</span>
         </button>
@@ -119,7 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, user
             {user?.photoURL ? (
               <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full" referrerPolicy="no-referrer" />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-[#0D1C32] flex items-center justify-center text-white text-xs font-bold">
+              <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">
                 {user?.displayName?.[0] || 'U'}
               </div>
             )}

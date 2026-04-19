@@ -4,6 +4,37 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-headline: "Manrope", ui-sans-serif, system-ui, sans-serif;
+
+  /*
+   * Brand palette — exactly three decorative colors. Anything outside
+   * these three (emerald, amber, red, blue, slate) is reserved for
+   * status meaning only.
+   *   primary   = trust, structure, headers, primary CTAs
+   *   secondary = warm accent for "in transit" / lending / highlights
+   *   tertiary  = interactive accent for management / settings flows
+   */
+  --color-primary: #0D1C32;
+  --color-primary-50: #F2F4F8;
+  --color-primary-100: #DDE3EC;
+  --color-primary-600: #1F3055;
+  --color-on-primary: #FFFFFF;
+
+  --color-secondary: #B8741A;
+  --color-secondary-50: #FFF4E1;
+  --color-secondary-100: #FFDDB8;
+  --color-secondary-600: #8A5512;
+  --color-secondary-700: #653E00;
+  --color-on-secondary: #653E00;
+
+  --color-tertiary: #4F46E5;
+  --color-tertiary-50: #EEF2FF;
+  --color-tertiary-100: #E0E7FF;
+  --color-tertiary-500: #6366F1;
+  --color-tertiary-600: #4F46E5;
+  --color-tertiary-700: #4338CA;
+  --color-on-tertiary: #FFFFFF;
+
+  --color-on-surface: #0D1C32;
 }
 
 @layer base {

@@ -67,7 +67,7 @@ class ErrorBoundary extends React.Component<{ children?: React.ReactNode }, { ha
             </p>
             <button 
               onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-[#0D1C32] text-white rounded-xl font-bold"
+              className="px-6 py-3 bg-primary text-white rounded-xl font-bold"
             >
               Reload Application
             </button>
@@ -102,7 +102,7 @@ const useOnlineStatus = () => {
 const TopBar = ({ title, showMenu = true, onMenuClick, onNotificationsClick, userData }: { title: string, showMenu?: boolean, onMenuClick?: () => void, onNotificationsClick?: () => void, userData: any }) => {
   const isOnline = useOnlineStatus();
   return (
-    <header className="fixed top-0 left-0 w-full z-50 flex items-center justify-between px-6 py-4 bg-[#0D1C32] text-white">
+    <header className="fixed top-0 left-0 w-full z-50 flex items-center justify-between px-6 py-4 bg-primary text-white">
       <div className="flex items-center gap-3">
         {showMenu && <Icons.Menu size={24} onClick={onMenuClick} className="cursor-pointer hover:opacity-80" />}
         <div className="flex flex-col">
@@ -141,7 +141,7 @@ const Sidebar = ({ isOpen, onClose, setScreen, onLogout, userData }: { isOpen: b
           animate={{ x: 0 }}
           exit={{ x: '-100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="fixed top-0 left-0 h-full w-80 bg-[#0D1C32] text-white z-[70] shadow-2xl flex flex-col"
+          className="fixed top-0 left-0 h-full w-80 bg-primary text-white z-[70] shadow-2xl flex flex-col"
         >
           <div className="p-8 border-b border-white/10">
             <div className="flex justify-between items-center mb-8">
@@ -156,7 +156,7 @@ const Sidebar = ({ isOpen, onClose, setScreen, onLogout, userData }: { isOpen: b
               </div>
               <div>
                 <p className="font-headline font-bold">{userData?.displayName || 'Unknown'}</p>
-                <p className="text-xs text-slate-400">{userData?.role === 'admin' ? 'Administrator' : 'Clerk'}</p>
+                <p className="text-xs text-slate-400">{userData?.role === 'admin' ? 'Administrator' : 'Sales'}</p>
               </div>
             </div>
           </div>
@@ -277,7 +277,7 @@ const ItemHistoryOverlay = ({ item, transactions, onClose, onReturn, onSettle }:
                 <h1 className="text-3xl font-headline font-bold">EthioVault Inventory Report</h1>
                 <p className="text-slate-500">Generated on {new Date().toLocaleString()}</p>
               </div>
-              <div className="p-8 bg-[#0D1C32] text-white print:bg-white print:text-slate-900 print:border-b print:border-slate-200">
+              <div className="p-8 bg-primary text-white print:bg-white print:text-slate-900 print:border-b print:border-slate-200">
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <h3 className="text-2xl font-headline font-bold">{item.name}</h3>
@@ -381,7 +381,7 @@ const ItemHistoryOverlay = ({ item, transactions, onClose, onReturn, onSettle }:
                          `Transaction logged by ${tx.clerk}`}
                       </p>
                       <div className="mt-2 flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 px-2 py-0.5 rounded">Clerk: {tx.clerk}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 px-2 py-0.5 rounded">Sales: {tx.clerk}</span>
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
                           tx.status === 'SETTLED' || tx.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-600'
                         }`}>{tx.status}</span>
@@ -398,7 +398,7 @@ const ItemHistoryOverlay = ({ item, transactions, onClose, onReturn, onSettle }:
               </div>
             </div>
             <div className="p-8 border-t border-slate-100 bg-slate-50 no-print">
-              <button onClick={() => window.print()} className="w-full py-4 bg-[#0D1C32] text-white rounded-2xl font-headline font-bold shadow-lg hover:opacity-90 transition-all">
+              <button onClick={() => window.print()} className="w-full py-4 bg-primary text-white rounded-2xl font-headline font-bold shadow-lg hover:opacity-90 transition-all">
                 Print Item Report
               </button>
             </div>
@@ -441,7 +441,7 @@ const LoginScreen = ({ onLogin }: { onLogin: (email: string, password: string, m
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0D1C32]">
+    <div className="min-h-screen flex flex-col bg-primary">
       <header className="fixed top-0 w-full z-50 bg-slate-900/50 backdrop-blur-md flex justify-between items-center px-6 py-4">
         <div className="text-xl font-bold text-white tracking-widest uppercase font-headline">Transaction History</div>
         <div className="flex items-center gap-3">
@@ -456,10 +456,10 @@ const LoginScreen = ({ onLogin }: { onLogin: (email: string, password: string, m
         </div>
 
         <div className="w-full max-w-md bg-white rounded-[2.5rem] overflow-hidden shadow-2xl relative z-10 p-10">
-          <div className="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center mx-auto mb-6 text-[#0D1C32]">
+          <div className="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center mx-auto mb-6 text-primary">
             <Icons.Shield size={40} />
           </div>
-          <h1 className="text-3xl font-bold font-headline text-[#0D1C32] mb-2 text-center">EthioVault</h1>
+          <h1 className="text-3xl font-bold font-headline text-primary mb-2 text-center">EthioVault</h1>
           <p className="text-slate-500 text-sm mb-8 text-center">
             {mode === 'signin' ? 'Sign in to your account.' : 'Create a new account.'}
           </p>
@@ -471,7 +471,7 @@ const LoginScreen = ({ onLogin }: { onLogin: (email: string, password: string, m
                 placeholder="Display name"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-4 py-3 rounded-2xl bg-slate-100 text-[#0D1C32] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0D1C32]"
+                className="w-full px-4 py-3 rounded-2xl bg-slate-100 text-primary placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary"
               />
             )}
             <input
@@ -481,7 +481,7 @@ const LoginScreen = ({ onLogin }: { onLogin: (email: string, password: string, m
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full px-4 py-3 rounded-2xl bg-slate-100 text-[#0D1C32] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0D1C32]"
+              className="w-full px-4 py-3 rounded-2xl bg-slate-100 text-primary placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <input
               type="password"
@@ -491,7 +491,7 @@ const LoginScreen = ({ onLogin }: { onLogin: (email: string, password: string, m
               required
               minLength={6}
               autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-              className="w-full px-4 py-3 rounded-2xl bg-slate-100 text-[#0D1C32] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0D1C32]"
+              className="w-full px-4 py-3 rounded-2xl bg-slate-100 text-primary placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary"
             />
 
             {error && (
@@ -501,7 +501,7 @@ const LoginScreen = ({ onLogin }: { onLogin: (email: string, password: string, m
             <button
               type="submit"
               disabled={submitting}
-              className="w-full bg-[#0D1C32] text-white py-4 rounded-2xl font-headline font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-60 disabled:hover:scale-100"
+              className="w-full bg-primary text-white py-4 rounded-2xl font-headline font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-60 disabled:hover:scale-100"
             >
               {submitting ? 'Please wait…' : mode === 'signin' ? 'Sign In' : 'Create Account'}
             </button>
@@ -510,7 +510,7 @@ const LoginScreen = ({ onLogin }: { onLogin: (email: string, password: string, m
           <button
             type="button"
             onClick={() => { setError(null); setSignupSuccess(false); setMode(mode === 'signin' ? 'signup' : 'signin'); }}
-            className="mt-6 w-full text-sm text-slate-500 hover:text-[#0D1C32] transition"
+            className="mt-6 w-full text-sm text-slate-500 hover:text-primary transition"
           >
             {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
           </button>
@@ -532,14 +532,14 @@ const LoginScreen = ({ onLogin }: { onLogin: (email: string, password: string, m
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
               <Icons.CheckCircle size={32} />
             </div>
-            <h2 className="font-headline text-2xl font-bold text-[#0D1C32] mb-2">Account Created</h2>
+            <h2 className="font-headline text-2xl font-bold text-primary mb-2">Account Created</h2>
             <p className="text-slate-500 text-sm mb-6">
               Your account was created successfully. Please sign in to continue.
             </p>
             <button
               type="button"
               onClick={() => setSignupSuccess(false)}
-              className="w-full bg-[#0D1C32] text-white py-3 rounded-2xl font-headline font-bold shadow-lg active:scale-95 transition-all"
+              className="w-full bg-primary text-white py-3 rounded-2xl font-headline font-bold shadow-lg active:scale-95 transition-all"
             >
               Continue to Sign In
             </button>
@@ -571,7 +571,7 @@ const ProfileScreen = ({ onBack, user, userData, onUpdate, canInstall, onInstall
             <button onClick={onBack} className="p-2 bg-white rounded-lg shadow-sm text-slate-600">
               <Icons.Close size={20} />
             </button>
-            <span className="font-label text-[0.75rem] font-bold uppercase tracking-[0.2em] text-[#0D1C32]">Profile Settings</span>
+            <span className="font-label text-[0.75rem] font-bold uppercase tracking-[0.2em] text-primary">Profile Settings</span>
           </div>
           <h2 className="font-headline text-5xl font-bold leading-tight mt-2 text-primary tracking-tighter">Edit Profile</h2>
         </section>
@@ -619,7 +619,7 @@ const ProfileScreen = ({ onBack, user, userData, onUpdate, canInstall, onInstall
                 onClick={() => { onBack(); (window as any).setScreen('INVITE'); }}
                 className="w-full py-4 bg-emerald-50 text-emerald-600 rounded-xl font-headline font-bold text-sm tracking-wide hover:bg-emerald-100 transition-all flex items-center justify-center gap-2"
               >
-                <Icons.Security size={20} /> Invite Clerks
+                <Icons.Security size={20} /> Invite Sales
               </button>
             </div>
           )}
@@ -646,7 +646,7 @@ const ProfileScreen = ({ onBack, user, userData, onUpdate, canInstall, onInstall
             </div>
           </div>
 
-          <button onClick={handleSave} className="w-full py-5 bg-[#0D1C32] text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 transition-all shadow-xl flex items-center justify-center gap-3">
+          <button onClick={handleSave} className="w-full py-5 bg-primary text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 transition-all shadow-xl flex items-center justify-center gap-3">
             <Icons.CheckCircle size={24} /> Save Changes
           </button>
         </div>
@@ -674,7 +674,7 @@ const TransactionDetailsOverlay = ({ transaction, onClose, onDelete, isAdmin }: 
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
         className="fixed bottom-0 left-0 w-full bg-white rounded-t-[2.5rem] z-[130] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
       >
-        <div className="p-8 bg-[#0D1C32] text-white">
+        <div className="p-8 bg-primary text-white">
           <div className="flex justify-between items-start mb-6">
             <div>
               <h3 className="text-2xl font-headline font-bold">{transaction.item}</h3>
@@ -698,7 +698,7 @@ const TransactionDetailsOverlay = ({ transaction, onClose, onDelete, isAdmin }: 
         <div className="flex-grow overflow-y-auto p-8 space-y-6 no-scrollbar">
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Clerk</p>
+              <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Sales</p>
               <p className="font-headline font-bold text-on-surface">{transaction.clerk}</p>
             </div>
             <div>
@@ -790,7 +790,7 @@ const VaultDashboardScreen = ({ setScreen, transactions, metrics, onTransactionC
       <section>
         <h3 className="font-headline font-semibold text-lg mb-4 px-2">Quick Actions</h3>
         <div className="flex overflow-x-auto no-scrollbar gap-3 pb-2 px-1">
-          <button onClick={() => setScreen('SALE')} className="flex-shrink-0 flex flex-col items-center gap-2 bg-[#0D1C32] text-white p-4 rounded-xl min-w-[100px] hover:opacity-90 transition-all active:scale-95">
+          <button onClick={() => setScreen('SALE')} className="flex-shrink-0 flex flex-col items-center gap-2 bg-primary text-white p-4 rounded-xl min-w-[100px] hover:opacity-90 transition-all active:scale-95">
             <Icons.NewSale size={24} />
             <span className="font-label text-xs font-medium">New Sale</span>
           </button>
@@ -798,7 +798,7 @@ const VaultDashboardScreen = ({ setScreen, transactions, metrics, onTransactionC
             <Icons.LogPurchase size={24} />
             <span className="font-label text-xs font-medium">Log Purchase</span>
           </button>
-          <button onClick={() => setScreen('LEND')} className="flex-shrink-0 flex flex-col items-center gap-2 bg-[#FFDDB8] text-[#653E00] p-4 rounded-xl min-w-[100px] hover:opacity-90 transition-all active:scale-95">
+          <button onClick={() => setScreen('LEND')} className="flex-shrink-0 flex flex-col items-center gap-2 bg-secondary-100 text-secondary-700 p-4 rounded-xl min-w-[100px] hover:opacity-90 transition-all active:scale-95">
             <Icons.LendPhone size={24} />
             <span className="font-label text-xs font-medium">Lend Phone</span>
           </button>
@@ -887,7 +887,7 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
       <div className="pt-16 sm:pt-20 px-4 sm:px-6 pb-8 sm:pb-12 bg-white border-b border-slate-100 rounded-b-[2rem] sm:rounded-b-[3rem] shadow-sm relative overflow-hidden">
         {/* Background Decorative Pattern */}
         <div className="absolute top-0 right-0 p-8 sm:p-12 opacity-[0.03] pointer-events-none">
-          <Icons.Store size={180} className="sm:size-[280px] rotate-12 text-[#0D1C32]" />
+          <Icons.Store size={180} className="sm:size-[280px] rotate-12 text-primary" />
         </div>
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4 relative z-10">
@@ -899,7 +899,7 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
                <Icons.Menu size={18} />
              </button>
              <div>
-               <h2 className="text-xl sm:text-3xl font-headline font-bold text-[#0D1C32] tracking-tight">Stock Explorer</h2>
+               <h2 className="text-xl sm:text-3xl font-headline font-bold text-primary tracking-tight">Stock Explorer</h2>
                <p className="text-slate-400 text-[10px] sm:text-xs font-medium uppercase tracking-[0.2em] mt-0.5 sm:mt-1">All Store Items</p>
              </div>
            </div>
@@ -917,13 +917,13 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
               <div className="flex gap-1.5 bg-slate-50 p-1 rounded-xl sm:rounded-[14px] shadow-inner">
                 <button 
                   onClick={() => setViewMode('LIST')}
-                  className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition-all ${viewMode === 'LIST' ? 'bg-white text-[#0D1C32] shadow-sm scale-105' : 'text-slate-400 hover:bg-white/50'}`}
+                  className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition-all ${viewMode === 'LIST' ? 'bg-white text-primary shadow-sm scale-105' : 'text-slate-400 hover:bg-white/50'}`}
                 >
                   <Icons.Ledger size={16} />
                 </button>
                 <button 
                   onClick={() => setViewMode('GRID')}
-                  className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition-all ${viewMode === 'GRID' ? 'bg-white text-[#0D1C32] shadow-sm scale-105' : 'text-slate-400 hover:bg-white/50'}`}
+                  className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition-all ${viewMode === 'GRID' ? 'bg-white text-primary shadow-sm scale-105' : 'text-slate-400 hover:bg-white/50'}`}
                 >
                   <Icons.DashboardGrid size={16} />
                 </button>
@@ -935,14 +935,14 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
           <div className="relative flex-1">
             <Icons.Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
             <input 
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 sm:py-4.5 pl-12 sm:pl-14 pr-4 text-sm sm:text-base text-on-surface placeholder:text-slate-300 focus:ring-2 focus:ring-[#0D1C32]/5 transition-all outline-none" 
+              className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 sm:py-4.5 pl-12 sm:pl-14 pr-4 text-sm sm:text-base text-on-surface placeholder:text-slate-300 focus:ring-2 focus:ring-primary/5 transition-all outline-none" 
               placeholder="Search IMEI, Model or Serial..." 
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <button onClick={() => setIsScanning(true)} className="bg-[#0D1C32] text-white p-4 sm:p-4.5 rounded-2xl shadow-xl shadow-[#0D1C32]/10 hover:opacity-90 active:scale-95 transition-all flex items-center justify-center">
+          <button onClick={() => setIsScanning(true)} className="bg-primary text-white p-4 sm:p-4.5 rounded-2xl shadow-xl shadow-primary/10 hover:opacity-90 active:scale-95 transition-all flex items-center justify-center">
             <Icons.Search size={20} />
           </button>
         </div>
@@ -955,7 +955,7 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
                     key={f} 
                     onClick={() => setFilter(f)}
                     className={`whitespace-nowrap px-5 py-2.5 rounded-xl text-[10px] font-bold tracking-[0.1em] transition-all ${
-                      filter === f ? 'bg-[#0D1C32] text-white shadow-lg translate-y-[-2px]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                      filter === f ? 'bg-primary text-white shadow-lg translate-y-[-2px]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
                     }`}
                   >
                     {f}
@@ -967,7 +967,7 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
                  <select 
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="flex-1 lg:flex-none bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-[10px] font-bold text-slate-600 focus:ring-2 focus:ring-[#0D1C32]/10 outline-none cursor-pointer hover:bg-slate-100 transition-all min-w-[120px]"
+                    className="flex-1 lg:flex-none bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-[10px] font-bold text-slate-600 focus:ring-2 focus:ring-primary/10 outline-none cursor-pointer hover:bg-slate-100 transition-all min-w-[120px]"
                  >
                     <option value="ALL STATUS">ALL STATUS</option>
                     <option value="IN_STOCK">IN STOCK</option>
@@ -979,7 +979,7 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
                  <select 
                     value={selectedWarehouseId}
                     onChange={(e) => setSelectedWarehouseId(e.target.value)}
-                    className="flex-1 lg:flex-none bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-[10px] font-bold text-slate-600 focus:ring-2 focus:ring-[#0D1C32]/10 outline-none cursor-pointer hover:bg-slate-100 transition-all min-w-[120px]"
+                    className="flex-1 lg:flex-none bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-[10px] font-bold text-slate-600 focus:ring-2 focus:ring-primary/10 outline-none cursor-pointer hover:bg-slate-100 transition-all min-w-[120px]"
                  >
                     <option value="ALL">ALL WAREHOUSES</option>
                     {warehouses.map(w => (
@@ -1025,14 +1025,14 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8">
            <div className="min-w-0">
             <div className="flex items-center gap-2 mb-2">
-               <div className="w-2 h-2 rounded-full bg-[#0D1C32] animate-pulse" />
+               <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Store Stock</p>
             </div>
             <h2 className="font-headline font-bold text-3xl sm:text-4xl text-on-surface tracking-tighter truncate">Store Items</h2>
           </div>
           <div className="text-left sm:text-right bg-white p-5 sm:p-6 rounded-[2rem] shadow-sm border border-slate-100 w-full sm:w-auto shrink-0">
             <p className="text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-widest">Aggregate Valuation</p>
-            <p className="font-headline font-black text-2xl sm:text-3xl text-[#0D1C32] leading-none break-words">{(totalValue || 0).toLocaleString()} <span className="text-sm font-bold text-slate-400">ETB</span></p>
+            <p className="font-headline font-black text-2xl sm:text-3xl text-primary leading-none break-words">{(totalValue || 0).toLocaleString()} <span className="text-sm font-bold text-slate-400">ETB</span></p>
           </div>
         </div>
 
@@ -1067,7 +1067,7 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
                   </div>
 
                   <div className="space-y-1 overflow-hidden">
-                    <h3 className={`font-headline font-bold text-on-surface group-hover:text-[#0D1C32] transition-colors truncate ${viewMode === 'LIST' ? 'text-base sm:text-lg' : 'text-xl'}`}>{item.name}</h3>
+                    <h3 className={`font-headline font-bold text-on-surface group-hover:text-primary transition-colors truncate ${viewMode === 'LIST' ? 'text-base sm:text-lg' : 'text-xl'}`}>{item.name}</h3>
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                       <span className="text-[10px] font-bold text-slate-300 tracking-widest uppercase truncate max-w-[120px]">IMEI: {item.imei}</span>
                       <span className="w-1 h-1 rounded-full bg-slate-200 hidden sm:block" />
@@ -1091,7 +1091,7 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Asset Value</p>
-                    <p className="font-headline font-bold text-base sm:text-lg text-[#0D1C32]">{(item.valuation || 0).toLocaleString()} <span className="text-xs">ETB</span></p>
+                    <p className="font-headline font-bold text-base sm:text-lg text-primary">{(item.valuation || 0).toLocaleString()} <span className="text-xs">ETB</span></p>
                   </div>
                   {viewMode === 'LIST' && (
                     <button 
@@ -1099,7 +1099,7 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
                         e.stopPropagation();
                         setMovingItem(item);
                       }}
-                      className="p-3 hover:bg-slate-100 rounded-xl transition-all text-slate-400 hover:text-[#0D1C32] hidden sm:block"
+                      className="p-3 hover:bg-slate-100 rounded-xl transition-all text-slate-400 hover:text-primary hidden sm:block"
                     >
                       <Icons.ArrowLeftRight size={20} />
                     </button>
@@ -1121,7 +1121,7 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
 
       <AnimatePresence>
         {movingItem && (
-          <div className="fixed inset-0 bg-[#0D1C32]/80 backdrop-blur-md z-[200] flex items-center justify-center p-6">
+          <div className="fixed inset-0 bg-primary/80 backdrop-blur-md z-[200] flex items-center justify-center p-6">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -1136,7 +1136,7 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
               </div>
 
               <div className="bg-slate-50 p-6 rounded-3xl mb-8 flex items-center gap-4">
-                 <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-[#0D1C32]">
+                 <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-primary">
                     <Icons.Smartphone size={24} />
                  </div>
                  <div>
@@ -1157,17 +1157,17 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
                     className={`w-full text-left p-5 rounded-2xl border-2 transition-all flex items-center justify-between group ${
                       w.id === movingItem.warehouseId 
                         ? 'border-emerald-500 bg-emerald-50 cursor-default' 
-                        : 'border-slate-100 hover:border-[#0D1C32]/20 hover:bg-slate-50'
+                        : 'border-slate-100 hover:border-primary/20 hover:bg-slate-50'
                     }`}
                   >
                     <div>
-                       <p className={`font-bold transition-colors ${w.id === movingItem.warehouseId ? 'text-emerald-700' : 'text-on-surface group-hover:text-[#0D1C32]'}`}>{w.name}</p>
+                       <p className={`font-bold transition-colors ${w.id === movingItem.warehouseId ? 'text-emerald-700' : 'text-on-surface group-hover:text-primary'}`}>{w.name}</p>
                        <p className="text-xs text-slate-400">{w.location}</p>
                     </div>
                     {w.id === movingItem.warehouseId ? (
                       <Icons.CheckCircle className="text-emerald-500" size={20} />
                     ) : (
-                      <Icons.ArrowRight size={18} className="text-slate-300 group-hover:text-[#0D1C32] group-hover:translate-x-1 transition-all" />
+                      <Icons.ArrowRight size={18} className="text-slate-300 group-hover:text-primary group-hover:translate-x-1 transition-all" />
                     )}
                   </button>
                 ))}
@@ -1177,7 +1177,7 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
         )}
       </AnimatePresence>
 
-      <button onClick={() => onItemClick({ isNew: true })} className="fixed bottom-24 right-6 w-16 h-16 bg-[#0D1C32] text-white rounded-3xl flex items-center justify-center shadow-2xl shadow-[#0D1C32]/40 hover:scale-110 active:scale-95 transition-all z-50">
+      <button onClick={() => onItemClick({ isNew: true })} className="fixed bottom-24 right-6 w-16 h-16 bg-primary text-white rounded-3xl flex items-center justify-center shadow-2xl shadow-primary/40 hover:scale-110 active:scale-95 transition-all z-50">
         <Icons.Plus size={32} />
       </button>
     </div>
@@ -1186,11 +1186,35 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
 
 const SalesHistoryScreen = ({ transactions, onOpenSidebar, onSetScreen, onSetTransaction }: { transactions: Transaction[], onOpenSidebar: () => void, onSetScreen: (s: Screen) => void, onSetTransaction: (t: Transaction) => void }) => {
   const [search, setSearch] = useState('');
-  const filtered = transactions.filter(t => 
-    (t.type === 'SALE' || t.type === 'PURCHASE') && 
-    ((t.item?.toLowerCase() || '').includes(search.toLowerCase()) || (t.imei || '').toLowerCase().includes(search.toLowerCase()))
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'SALE' | 'PURCHASE' | 'EXPENSE' | 'LOAN' | 'REPAYMENT' | 'LENT' | 'RETURNED' | 'TRANSFER'>('ALL');
+
+  const moneyTypes = ['SALE','PURCHASE','EXPENSE','LOAN','REPAYMENT','LENT','RETURNED','BORROWED','TRANSFER'] as const;
+  const filtered = transactions.filter(t =>
+    moneyTypes.includes(t.type as any) &&
+    (typeFilter === 'ALL' || t.type === typeFilter) &&
+    (
+      (t.item?.toLowerCase() || '').includes(search.toLowerCase()) ||
+      (t.imei || '').toLowerCase().includes(search.toLowerCase()) ||
+      (t.location || '').toLowerCase().includes(search.toLowerCase()) ||
+      (t.clerk || '').toLowerCase().includes(search.toLowerCase())
+    )
   );
-  
+
+  const styleFor = (type: string) => {
+    switch (type) {
+      case 'SALE':       return { color: 'text-emerald-600', dot: 'bg-emerald-500', icon: <Icons.Smartphone size={24} />, label: 'Sale',           sign: '+' };
+      case 'PURCHASE':   return { color: 'text-blue-600',    dot: 'bg-blue-500',    icon: <Icons.Package size={24} />,    label: 'Purchase',       sign: '-' };
+      case 'EXPENSE':    return { color: 'text-red-600',     dot: 'bg-red-500',     icon: <Icons.Receipt size={24} />,    label: 'Expense',        sign: '-' };
+      case 'LOAN':       return { color: 'text-amber-600',   dot: 'bg-amber-500',   icon: <Icons.ArrowLeftRight size={24} />, label: 'Loan',       sign: ''  };
+      case 'REPAYMENT':  return { color: 'text-tertiary-600',  dot: 'bg-tertiary-500',  icon: <Icons.History size={24} />,    label: 'Repayment',      sign: ''  };
+      case 'LENT':       return { color: 'text-amber-600',   dot: 'bg-amber-500',   icon: <Icons.LendPhone size={24} />,  label: 'Item Lent',      sign: ''  };
+      case 'RETURNED':   return { color: 'text-emerald-600', dot: 'bg-emerald-500', icon: <Icons.CheckCircle size={24} />, label: 'Item Returned', sign: '+' };
+      case 'BORROWED':   return { color: 'text-blue-600',    dot: 'bg-blue-500',    icon: <Icons.ArrowLeftRight size={24} />, label: 'Borrowed',   sign: '+' };
+      case 'TRANSFER':   return { color: 'text-slate-600',   dot: 'bg-slate-500',   icon: <Icons.Send size={24} />,       label: 'Transfer',       sign: ''  };
+      default:           return { color: 'text-slate-600',   dot: 'bg-slate-500',   icon: <Icons.Receipt size={24} />,    label: type,             sign: ''  };
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] p-8">
       <header className="mb-12 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -1204,9 +1228,9 @@ const SalesHistoryScreen = ({ transactions, onOpenSidebar, onSetScreen, onSetTra
             <div>
               <div className="flex items-center gap-2 mb-1">
                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                 <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Sales Records</p>
+                 <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Money Records</p>
               </div>
-              <h2 className="text-4xl font-headline font-bold tracking-tighter text-[#0D1C32]">All Sales</h2>
+              <h2 className="text-4xl font-headline font-bold tracking-tighter text-primary">All Transactions</h2>
             </div>
          </div>
          <div className="flex items-center gap-3">
@@ -1214,56 +1238,79 @@ const SalesHistoryScreen = ({ transactions, onOpenSidebar, onSetScreen, onSetTra
               <Icons.Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
               <input 
                 type="text"
-                placeholder="Search by item or IMEI..."
+                placeholder="Search item, IMEI, person, sales…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="bg-white border border-slate-100 rounded-2xl pl-12 pr-6 py-4 text-sm font-bold shadow-sm focus:ring-2 focus:ring-emerald-500/10 transition-all min-w-[280px] outline-none"
               />
             </div>
-            <button onClick={() => onSetScreen('SALE')} className="flex items-center gap-2 bg-[#0D1C32] text-white px-6 py-4 rounded-2xl font-bold text-sm shadow-xl shadow-[#0D1C32]/10 hover:opacity-90 active:scale-95 transition-all">
+            <button onClick={() => onSetScreen('SALE')} className="flex items-center gap-2 bg-primary text-white px-6 py-4 rounded-2xl font-bold text-sm shadow-xl shadow-primary/10 hover:opacity-90 active:scale-95 transition-all">
                <Icons.Plus size={20} />
                <span>New Sale</span>
             </button>
          </div>
       </header>
+
+      <div className="flex gap-2 mb-6 overflow-x-auto no-scrollbar pb-2">
+        {(['ALL','SALE','PURCHASE','EXPENSE','LOAN','REPAYMENT','LENT','RETURNED','TRANSFER'] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setTypeFilter(t)}
+            className={`px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all shrink-0 ${
+              typeFilter === t ? 'bg-primary text-white shadow-md' : 'bg-white border border-slate-100 text-slate-500 hover:bg-slate-50'
+            }`}
+          >
+            {t === 'ALL' ? 'All' : t}
+          </button>
+        ))}
+      </div>
+
       <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
-         <div className="p-8 border-b border-slate-50 flex justify-between items-center">
-            <h3 className="font-headline font-bold text-on-surface">Transaction History</h3>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sales</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-blue-500" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Purchases</span>
-              </div>
+         <div className="p-8 border-b border-slate-50 flex justify-between items-center flex-wrap gap-4">
+            <h3 className="font-headline font-bold text-on-surface">Transaction History · {filtered.length}</h3>
+            <div className="flex items-center gap-4 flex-wrap">
+              {(['SALE','PURCHASE','EXPENSE','LOAN','LENT'] as const).map(t => {
+                const s = styleFor(t);
+                return (
+                  <div key={t} className="flex items-center gap-2">
+                    <div className={`w-2.5 h-2.5 rounded-full ${s.dot}`} />
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{s.label}</span>
+                  </div>
+                );
+              })}
             </div>
          </div>
          <div className="p-4 sm:p-8">
             {filtered.length > 0 ? (
               <div className="space-y-4">
-                {filtered.map(tx => (
-                  <div key={tx.id} onClick={() => onSetTransaction(tx)} className="p-6 bg-slate-50 rounded-3xl flex items-center justify-between hover:bg-white hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer border border-transparent hover:border-slate-100 group">
-                     <div className="flex items-center gap-5">
-                        <div className={`w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-inner group-hover:bg-slate-50 ${tx.type === 'SALE' ? 'text-emerald-600' : 'text-blue-600'}`}>
-                           {tx.type === 'SALE' ? <Icons.Smartphone size={24} /> : <Icons.Package size={24} />}
-                        </div>
-                        <div>
-                           <h4 className="font-headline font-bold text-on-surface">{tx.item}</h4>
-                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                             {tx.type === 'SALE' ? 'Sale' : 'Storage Purchase'} • {tx.clerk} • {new Date(tx.timestamp).toLocaleString()}
-                           </p>
-                        </div>
-                     </div>
-                     <div className="text-right">
-                        <p className={`text-lg font-headline font-bold ${tx.type === 'SALE' ? 'text-emerald-600' : 'text-blue-600'}`}>
-                          {tx.type === 'SALE' ? '+' : ''}{tx.amount.toLocaleString()} ETB
-                        </p>
-                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{tx.status || 'Completed'}</p>
-                     </div>
-                  </div>
-                ))}
+                {filtered.map(tx => {
+                  const s = styleFor(tx.type);
+                  const counterparty = tx.location || (tx as any).branch || '';
+                  return (
+                    <div key={tx.id} onClick={() => onSetTransaction(tx)} className="p-6 bg-slate-50 rounded-3xl flex items-center justify-between hover:bg-white hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer border border-transparent hover:border-slate-100 group">
+                       <div className="flex items-center gap-5">
+                          <div className={`w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-inner group-hover:bg-slate-50 ${s.color}`}>
+                             {s.icon}
+                          </div>
+                          <div>
+                             <h4 className="font-headline font-bold text-on-surface">{tx.item}</h4>
+                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                               {s.label}
+                               {counterparty && ` · ${counterparty}`}
+                               {` · ${tx.clerk}`}
+                               {` · ${new Date(tx.timestamp).toLocaleString()}`}
+                             </p>
+                          </div>
+                       </div>
+                       <div className="text-right">
+                          <p className={`text-lg font-headline font-bold ${s.color}`}>
+                            {tx.amount > 0 ? s.sign : ''}{Math.abs(tx.amount).toLocaleString()} ETB
+                          </p>
+                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{tx.status || 'Completed'}</p>
+                       </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="py-20 text-center text-slate-400">
@@ -1299,7 +1346,7 @@ const NetworkOverviewScreen = ({ transactions, warehouses, metrics, onOpenSideba
                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Status Hub</p>
             </div>
-            <h2 className="font-headline text-3xl font-bold text-[#0D1C32] tracking-tighter">Network Overview</h2>
+            <h2 className="font-headline text-3xl font-bold text-primary tracking-tighter">Network Overview</h2>
           </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -1378,7 +1425,7 @@ const NetworkOverviewScreen = ({ transactions, warehouses, metrics, onOpenSideba
       </div>
 
       <div className="flex flex-col gap-6">
-        <button onClick={() => onSetScreen('TRANSFER')} className="flex items-center justify-center gap-2 bg-[#0D1C32] text-white px-6 py-4 rounded-xl font-bold text-sm shadow-lg hover:opacity-90 transition-opacity">
+        <button onClick={() => onSetScreen('TRANSFER')} className="flex items-center justify-center gap-2 bg-primary text-white px-6 py-4 rounded-xl font-bold text-sm shadow-lg hover:opacity-90 transition-opacity">
           <Icons.Plus size={20} /> Log Network Transfer
         </button>
         <div className="space-y-4 pb-20">
@@ -1386,7 +1433,7 @@ const NetworkOverviewScreen = ({ transactions, warehouses, metrics, onOpenSideba
           {filtered.length > 0 ? filtered.map((act, i) => (
             <div key={i} className="bg-white p-5 rounded-2xl flex items-center justify-between shadow-sm hover:bg-slate-50 transition-colors group border border-slate-50">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-[#0D1C32]">
+                <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-primary">
                   <Icons.Smartphone size={24} />
                 </div>
                 <div>
@@ -1432,14 +1479,14 @@ const LedgerScreen = ({ transactions, onTransactionClick, onOpenSidebar }: { tra
           </button>
           <div>
             <div className="flex items-center gap-2 mb-1">
-               <div className="w-2 h-2 rounded-full bg-[#0D1C32] animate-bounce" />
+               <div className="w-2 h-2 rounded-full bg-primary animate-bounce" />
                <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Today's List</p>
             </div>
-            <h2 className="font-headline text-4xl font-black text-[#0D1C32] tracking-tighter uppercase italic">All Transactions</h2>
+            <h2 className="font-headline text-4xl font-black text-primary tracking-tighter uppercase italic">All Transactions</h2>
           </div>
         </header>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-[#0D1C32] p-8 rounded-xl flex flex-col justify-between h-48">
+          <div className="bg-primary p-8 rounded-xl flex flex-col justify-between h-48">
             <span className="font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-400">Daily Sales (24h)</span>
             <div className="font-headline text-4xl font-bold text-white tracking-tight">ETB {totalVolume.toLocaleString()}.00</div>
             <div className="flex items-center text-emerald-400 text-sm font-medium">
@@ -1453,10 +1500,10 @@ const LedgerScreen = ({ transactions, onTransactionClick, onOpenSidebar }: { tra
               <Icons.Lock size={14} className="mr-1" /> Last updated {new Date().toLocaleTimeString()}
             </div>
           </div>
-          <div className="bg-[#FFDDB8] p-8 rounded-xl flex flex-col justify-between h-48">
-            <span className="font-label text-[0.75rem] font-bold uppercase tracking-wider text-[#653E00]">To Check</span>
+          <div className="bg-secondary-100 p-8 rounded-xl flex flex-col justify-between h-48">
+            <span className="font-label text-[0.75rem] font-bold uppercase tracking-wider text-secondary-700">To Check</span>
             <div className="font-headline text-4xl font-bold text-[#2A1700] tracking-tight">{pendingAudits.toString().padStart(2, '0')}</div>
-            <div className="flex items-center text-[#653E00] text-sm">
+            <div className="flex items-center text-secondary-700 text-sm">
               <Icons.History size={14} className="mr-1" /> Manager must check
             </div>
           </div>
@@ -1540,7 +1587,7 @@ const ExpenseScreen = ({ onBack, onExpense, bankAccounts, onOpenSidebar }: { onB
                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Expenses List</p>
             </div>
-            <h2 className="font-headline text-4xl font-bold text-[#0D1C32] tracking-tighter">Record Expense</h2>
+            <h2 className="font-headline text-4xl font-bold text-primary tracking-tighter">Record Expense</h2>
           </div>
         </header>
 
@@ -1557,7 +1604,7 @@ const ExpenseScreen = ({ onBack, onExpense, bankAccounts, onOpenSidebar }: { onB
           <div className="space-y-2">
             <label className="font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-400">Amount (ETB)</label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 font-headline text-2xl font-bold text-[#0D1C32]">ETB</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 font-headline text-2xl font-bold text-primary">ETB</span>
               <MoneyInput value={amount} onChange={setAmount} className="w-full bg-slate-50 border-none rounded-xl py-6 pl-20 pr-6 text-[2.5rem] font-headline font-bold text-primary focus:ring-2 focus:ring-primary/20 transition-all" placeholder="0.00" />
             </div>
           </div>
@@ -1579,14 +1626,14 @@ const ExpenseScreen = ({ onBack, onExpense, bankAccounts, onOpenSidebar }: { onB
             <label className="font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-400">Category</label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {['RENT', 'ELECTRICITY', 'INTERNET', 'STAFF LUNCH', 'STATIONARIES'].map(cat => (
-                <button key={cat} onClick={() => setCategory(cat)} className={`flex flex-col items-start p-4 rounded-xl transition-all group border-none text-left ${category === cat ? 'bg-[#0D1C32] text-white' : 'bg-slate-50 hover:bg-[#0D1C32] hover:text-white'}`}>
-                  <Icons.Receipt size={20} className={`mb-2 ${category === cat ? 'text-white' : 'text-[#0D1C32] group-hover:text-white'}`} />
+                <button key={cat} onClick={() => setCategory(cat)} className={`flex flex-col items-start p-4 rounded-xl transition-all group border-none text-left ${category === cat ? 'bg-primary text-white' : 'bg-slate-50 hover:bg-primary hover:text-white'}`}>
+                  <Icons.Receipt size={20} className={`mb-2 ${category === cat ? 'text-white' : 'text-primary group-hover:text-white'}`} />
                   <span className="font-label text-[10px] font-bold uppercase tracking-wide">{cat}</span>
                 </button>
               ))}
             </div>
           </div>
-          <button onClick={handleLog} className="w-full py-5 bg-[#0D1C32] text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 transition-all shadow-xl flex items-center justify-center gap-3">
+          <button onClick={handleLog} className="w-full py-5 bg-primary text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 transition-all shadow-xl flex items-center justify-center gap-3">
             <Icons.CheckCircle size={24} /> Log Expense
           </button>
         </div>
@@ -1679,7 +1726,7 @@ const ReconcileScreen = ({ onBack, transactions, userData, onOpenSidebar }: { on
                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Daily Operations</p>
             </div>
-            <h2 className="font-headline text-4xl font-bold text-[#0D1C32] tracking-tighter">Daily Report</h2>
+            <h2 className="font-headline text-4xl font-bold text-primary tracking-tighter">Daily Report</h2>
           </div>
         </header>
 
@@ -1713,13 +1760,13 @@ const ReconcileScreen = ({ onBack, transactions, userData, onOpenSidebar }: { on
                 <p className="text-[10px] uppercase font-bold text-amber-700 tracking-widest mb-1">Lends / Borrows</p>
                 <p className="font-headline font-bold text-amber-600">{summary.lends} / {summary.borrows}</p>
               </div>
-              <div className="p-4 bg-purple-50 rounded-2xl">
-                <p className="text-[10px] uppercase font-bold text-purple-700 tracking-widest mb-1">Cash Lent</p>
-                <p className="font-headline font-bold text-purple-600">{summary.cashLent.toLocaleString()} ETB</p>
+              <div className="p-4 bg-tertiary-50 rounded-2xl">
+                <p className="text-[10px] uppercase font-bold text-tertiary-700 tracking-widest mb-1">Cash Lent</p>
+                <p className="font-headline font-bold text-tertiary-600">{summary.cashLent.toLocaleString()} ETB</p>
               </div>
-              <div className="p-4 bg-indigo-50 rounded-2xl">
-                <p className="text-[10px] uppercase font-bold text-indigo-700 tracking-widest mb-1">Cash Received</p>
-                <p className="font-headline font-bold text-indigo-600">{summary.cashReceived.toLocaleString()} ETB</p>
+              <div className="p-4 bg-tertiary-50 rounded-2xl">
+                <p className="text-[10px] uppercase font-bold text-tertiary-700 tracking-widest mb-1">Cash Received</p>
+                <p className="font-headline font-bold text-tertiary-600">{summary.cashReceived.toLocaleString()} ETB</p>
               </div>
             </div>
             <div className="pt-4 border-t border-slate-50 flex justify-between items-center">
@@ -1752,7 +1799,7 @@ const ReconcileScreen = ({ onBack, transactions, userData, onOpenSidebar }: { on
             <div className="space-y-2">
               <label className="font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-400">Physical Cash Count (ETB)</label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-headline text-2xl font-bold text-[#0D1C32]">ETB</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-headline text-2xl font-bold text-primary">ETB</span>
                 <MoneyInput value={cashCount} onChange={setCashCount} className="w-full bg-slate-50 border-none rounded-xl py-6 pl-20 pr-6 text-[2.5rem] font-headline font-bold text-primary focus:ring-2 focus:ring-primary/20 transition-all" placeholder="0.00" />
               </div>
             </div>
@@ -1763,7 +1810,7 @@ const ReconcileScreen = ({ onBack, transactions, userData, onOpenSidebar }: { on
             <button 
               onClick={handleReconcile} 
               disabled={isApproving}
-              className={`w-full py-5 bg-[#0D1C32] text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 transition-all shadow-xl flex items-center justify-center gap-3 ${isApproving ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full py-5 bg-primary text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 transition-all shadow-xl flex items-center justify-center gap-3 ${isApproving ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isApproving ? (
                 <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1802,16 +1849,16 @@ const InviteScreen = ({ onBack, onInvite, invites, onOpenSidebar }: { onBack: ()
           )}
           <div>
             <div className="flex items-center gap-2 mb-1">
-               <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+               <div className="w-2 h-2 rounded-full bg-tertiary-500 animate-pulse" />
                <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Staff Expansion</p>
             </div>
-            <h2 className="font-headline text-4xl font-bold text-[#0D1C32] tracking-tighter">Invite Associate</h2>
+            <h2 className="font-headline text-4xl font-bold text-primary tracking-tighter">Invite Associate</h2>
           </div>
         </header>
 
         <section className="mb-8 p-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group">
           <div className="flex items-center gap-3 mb-2 relative z-10">
-            <button onClick={onBack} className="p-2.5 bg-slate-50 rounded-xl text-slate-400 hover:text-indigo-500 transition-all">
+            <button onClick={onBack} className="p-2.5 bg-slate-50 rounded-xl text-slate-400 hover:text-tertiary-500 transition-all">
               <Icons.Close size={20} />
             </button>
             <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Entry Panel</span>
@@ -1822,13 +1869,13 @@ const InviteScreen = ({ onBack, onInvite, invites, onOpenSidebar }: { onBack: ()
         <div className="space-y-6">
           <div className="bg-white rounded-xl p-8 shadow-2xl space-y-6">
             <div className="space-y-2">
-              <label className="font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-400">Clerk Email Address</label>
+              <label className="font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-400">Sales Email Address</label>
               <input 
                 type="email" 
                 value={email} 
                 onChange={(e) => setEmail(e.target.value)} 
                 className="w-full bg-slate-50 border-none rounded-xl py-4 px-4 font-headline font-bold text-primary focus:ring-2 focus:ring-primary/20 transition-all" 
-                placeholder="clerk@example.com" 
+                placeholder="sales@example.com" 
               />
             </div>
             <AsyncButton
@@ -1837,7 +1884,7 @@ const InviteScreen = ({ onBack, onInvite, invites, onOpenSidebar }: { onBack: ()
               loadingLabel="Sending Invite…"
               successLabel="Invitation Sent"
               icon={<Icons.Send size={20} />}
-              className="w-full py-5 bg-[#0D1C32] text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 shadow-xl"
+              className="w-full py-5 bg-primary text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 shadow-xl"
             >
               Send Invitation
             </AsyncButton>
@@ -1987,7 +2034,7 @@ const SaleScreen = ({ onBack, onSale, inventory, cart, setCart, bankAccounts, on
                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Checkout Point</p>
             </div>
-            <h2 className="font-headline text-4xl font-bold text-[#0D1C32] tracking-tighter">New Sale Transaction</h2>
+            <h2 className="font-headline text-4xl font-bold text-primary tracking-tighter">New Sale Transaction</h2>
           </div>
         </header>
 
@@ -2022,7 +2069,7 @@ const SaleScreen = ({ onBack, onSale, inventory, cart, setCart, bankAccounts, on
                       <button
                         type="button"
                         onClick={() => setIsScanning(true)}
-                        className="shrink-0 w-14 bg-[#0D1C32] text-white rounded-xl flex items-center justify-center hover:opacity-90 transition-all"
+                        className="shrink-0 w-14 bg-primary text-white rounded-xl flex items-center justify-center hover:opacity-90 transition-all"
                         title="Scan IMEI"
                       >
                         <Icons.QRCode size={20} />
@@ -2052,14 +2099,14 @@ const SaleScreen = ({ onBack, onSale, inventory, cart, setCart, bankAccounts, on
                  <div className="flex gap-2">
                     <button 
                       onClick={addToCart}
-                      className="flex-1 py-4 bg-slate-100 text-[#0D1C32] rounded-xl font-bold text-sm hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                      className="flex-1 py-4 bg-slate-100 text-primary rounded-xl font-bold text-sm hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
                     >
                       <Icons.Plus size={18} /> Add to Cart
                     </button>
                     <button 
                       onClick={handleOneByOneSale}
                       disabled={isProcessing || !selectedImei}
-                      className="flex-1 py-4 bg-[#0D1C32] text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="flex-1 py-4 bg-primary text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                       <Icons.CheckCircle size={18} /> Direct Sell
                     </button>
@@ -2083,8 +2130,8 @@ const SaleScreen = ({ onBack, onSale, inventory, cart, setCart, bankAccounts, on
 
           <section className="bg-white rounded-[2.5rem] p-8 shadow-2xl flex flex-col h-full min-h-[500px]">
              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-headline font-bold text-[#0D1C32]">Shopping Cart</h3>
-                <span className="bg-[#0D1C32] text-white px-3 py-1 rounded-full text-xs font-bold">{cart.length}</span>
+                <h3 className="text-xl font-headline font-bold text-primary">Shopping Cart</h3>
+                <span className="bg-primary text-white px-3 py-1 rounded-full text-xs font-bold">{cart.length}</span>
              </div>
              
              <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pr-2">
@@ -2092,7 +2139,7 @@ const SaleScreen = ({ onBack, onSale, inventory, cart, setCart, bankAccounts, on
                   <div key={entry.item.id} className="bg-slate-50 p-4 rounded-2xl flex justify-between items-center group">
                      <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                           <Icons.Smartphone size={20} className="text-[#0D1C32]" />
+                           <Icons.Smartphone size={20} className="text-primary" />
                         </div>
                         <div>
                            <p className="font-bold text-sm">{entry.item.name}</p>
@@ -2129,7 +2176,7 @@ const SaleScreen = ({ onBack, onSale, inventory, cart, setCart, bankAccounts, on
              <div className="pt-6 border-t border-slate-100 mt-6">
                 <div className="flex justify-between items-baseline mb-6">
                    <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Total Valuation</span>
-                   <span className="text-3xl font-headline font-bold text-[#0D1C32]">{totalAmount.toLocaleString()} <span className="text-sm opacity-40">ETB</span></span>
+                   <span className="text-3xl font-headline font-bold text-primary">{totalAmount.toLocaleString()} <span className="text-sm opacity-40">ETB</span></span>
                 </div>
                 <button 
                   onClick={handleCheckout}
@@ -2155,7 +2202,7 @@ const SaleScreen = ({ onBack, onSale, inventory, cart, setCart, bankAccounts, on
             <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${saleResult.ok ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
               {saleResult.ok ? <Icons.CheckCircle size={32} /> : <Icons.Warning size={32} />}
             </div>
-            <h2 className="font-headline text-2xl font-bold text-[#0D1C32] mb-2">
+            <h2 className="font-headline text-2xl font-bold text-primary mb-2">
               {saleResult.ok ? 'Sale Complete' : 'Sale Failed'}
             </h2>
             <p className="text-slate-500 text-sm mb-2">{saleResult.message}</p>
@@ -2167,7 +2214,7 @@ const SaleScreen = ({ onBack, onSale, inventory, cart, setCart, bankAccounts, on
             <button
               type="button"
               onClick={() => { const wasOk = saleResult.ok; setSaleResult(null); if (wasOk) onBack(); }}
-              className="w-full bg-[#0D1C32] text-white py-3 rounded-2xl font-headline font-bold shadow-lg active:scale-95 transition-all mt-4"
+              className="w-full bg-primary text-white py-3 rounded-2xl font-headline font-bold shadow-lg active:scale-95 transition-all mt-4"
             >
               {saleResult.ok ? 'Done' : 'Close'}
             </button>
@@ -2222,7 +2269,7 @@ const PurchaseScreen = ({ onBack, onAdd, warehouses, onOpenSidebar }: { onBack: 
                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Stock Input</p>
             </div>
-            <h2 className="font-headline text-4xl font-bold text-[#0D1C32] tracking-tighter">Buy Item</h2>
+            <h2 className="font-headline text-4xl font-bold text-primary tracking-tighter">Buy Item</h2>
           </div>
         </header>
 
@@ -2293,7 +2340,7 @@ const PurchaseScreen = ({ onBack, onAdd, warehouses, onOpenSidebar }: { onBack: 
              loadingLabel="Registering…"
              successLabel="Registered"
              icon={<Icons.Plus size={20} />}
-             className="w-full py-5 bg-[#0D1C32] text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 shadow-xl"
+             className="w-full py-5 bg-primary text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 shadow-xl"
            >
              Register Asset
            </AsyncButton>
@@ -2311,9 +2358,11 @@ const LendScreen = ({ onBack, inventory, onLend, stores, onCreateStore, favorite
   const [isScanning, setIsScanning] = useState(false);
 
   const handleLend = () => {
-    const val = Number(valuation.replace(/,/g, ''));
-    if (!selectedImei || !destination || isNaN(val) || val <= 0) return;
     const item = inventory.find(i => i.imei === selectedImei);
+    const fallback = Number(item?.valuation || 0);
+    const parsed = Number(valuation.replace(/,/g, ''));
+    const val = !isNaN(parsed) && parsed > 0 ? parsed : fallback;
+    if (!selectedImei || !destination || !item || val <= 0) return;
     onLend({
       itemId: item.id,
       imei: selectedImei,
@@ -2348,16 +2397,16 @@ const LendScreen = ({ onBack, inventory, onLend, stores, onCreateStore, favorite
           )}
           <div>
             <div className="flex items-center gap-2 mb-1">
-               <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+               <div className="w-2 h-2 rounded-full bg-tertiary-500 animate-pulse" />
                <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Lending Items</p>
             </div>
-            <h2 className="font-headline text-4xl font-bold text-[#0D1C32] tracking-tighter">Lend Item</h2>
+            <h2 className="font-headline text-4xl font-bold text-primary tracking-tighter">Lend Item</h2>
           </div>
         </header>
 
         <section className="mb-8 p-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
-            <button onClick={onBack} className="p-2.5 bg-slate-50 rounded-xl text-slate-400 hover:text-purple-500 transition-all">
+            <button onClick={onBack} className="p-2.5 bg-slate-50 rounded-xl text-slate-400 hover:text-tertiary-500 transition-all">
               <Icons.Close size={20} />
             </button>
             <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Lend setup</span>
@@ -2404,7 +2453,10 @@ const LendScreen = ({ onBack, inventory, onLend, stores, onCreateStore, favorite
                 value={valuation}
                 onChange={setValuation}
                 className="w-full bg-slate-50 border-none rounded-xl py-4 px-4 font-headline font-bold text-primary focus:ring-2 focus:ring-primary/20 transition-all" 
-                placeholder="0.00" 
+                placeholder={(() => {
+                  const sel = inventory.find(i => i.imei === selectedImei);
+                  return sel?.valuation ? Number(sel.valuation).toLocaleString() : '0.00';
+                })()}
               />
             </div>
             <div className="space-y-2">
@@ -2417,7 +2469,7 @@ const LendScreen = ({ onBack, inventory, onLend, stores, onCreateStore, favorite
               />
             </div>
           </div>
-          <button onClick={handleLend} className="w-full py-5 bg-[#FFDDB8] text-[#653E00] rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 transition-all shadow-xl flex items-center justify-center gap-3">
+          <button onClick={handleLend} className="w-full py-5 bg-secondary-100 text-secondary-700 rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 transition-all shadow-xl flex items-center justify-center gap-3">
             <Icons.LendPhone size={24} /> Finish Loan
           </button>
         </div>
@@ -2490,7 +2542,7 @@ const TransferScreen = ({ onBack, inventory, onTransfer, stores, onCreateStore, 
                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Moving Items</p>
             </div>
-            <h2 className="font-headline text-4xl font-bold text-[#0D1C32] tracking-tighter">Move Between Stores</h2>
+            <h2 className="font-headline text-4xl font-bold text-primary tracking-tighter">Move Between Stores</h2>
           </div>
         </header>
 
@@ -2508,8 +2560,8 @@ const TransferScreen = ({ onBack, inventory, onTransfer, stores, onCreateStore, 
           <div className="space-y-2">
             <label className="font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-400">Transfer Mode</label>
             <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => setDirection('SEND')} className={`py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${direction === 'SEND' ? 'bg-[#0D1C32] text-white' : 'bg-slate-100 text-slate-600'}`}>Send</button>
-              <button onClick={() => setDirection('RECEIVE')} className={`py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${direction === 'RECEIVE' ? 'bg-[#0D1C32] text-white' : 'bg-slate-100 text-slate-600'}`}>Receive</button>
+              <button onClick={() => setDirection('SEND')} className={`py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${direction === 'SEND' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'}`}>Send</button>
+              <button onClick={() => setDirection('RECEIVE')} className={`py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${direction === 'RECEIVE' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'}`}>Receive</button>
             </div>
           </div>
           <div className="space-y-2">
@@ -2565,7 +2617,7 @@ const TransferScreen = ({ onBack, inventory, onTransfer, stores, onCreateStore, 
               </select>
             )}
           </div>
-          <button onClick={handleTransfer} className="w-full py-5 bg-[#0D1C32] text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 transition-all shadow-xl flex items-center justify-center gap-3">
+          <button onClick={handleTransfer} className="w-full py-5 bg-primary text-white rounded-xl font-headline font-bold text-lg tracking-wide hover:opacity-90 transition-all shadow-xl flex items-center justify-center gap-3">
             <Icons.Send size={24} /> {direction === 'SEND' ? 'Initiate Transfer' : 'Confirm Receipt'}
           </button>
         </div>
@@ -2602,7 +2654,7 @@ const DebtScreen = ({ transactions, onBack, onOpenSidebar }: { transactions: Tra
                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Payable</p>
             </div>
-            <h2 className="font-headline text-4xl font-bold text-[#0D1C32] tracking-tighter">Money Owed</h2>
+            <h2 className="font-headline text-4xl font-bold text-primary tracking-tighter">Money Owed</h2>
           </div>
         </header>
 
@@ -2617,7 +2669,7 @@ const DebtScreen = ({ transactions, onBack, onOpenSidebar }: { transactions: Tra
           <Icons.Warning size={80} className="absolute -bottom-4 -right-4 opacity-5 group-hover:scale-110 transition-transform" />
         </section>
 
-        <div className="bg-[#0D1C32] p-8 rounded-3xl shadow-xl mb-8 text-white">
+        <div className="bg-primary p-8 rounded-3xl shadow-xl mb-8 text-white">
           <p className="text-slate-400 font-label text-xs uppercase tracking-wider mb-1">Total Outstanding Debt</p>
           <h2 className="font-headline font-extrabold text-4xl text-red-400">
             <span className="text-lg font-medium opacity-60 mr-1">ETB</span>{totalDebt.toLocaleString()}
@@ -2665,7 +2717,7 @@ const NotificationsScreen = ({ notifications, onBack, onOpenSidebar }: { notific
                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Updates</p>
             </div>
-            <h2 className="font-headline text-4xl font-bold text-[#0D1C32] tracking-tighter italic">News</h2>
+            <h2 className="font-headline text-4xl font-bold text-primary tracking-tighter italic">News</h2>
           </div>
         </header>
 
@@ -2722,12 +2774,12 @@ const OnboardingScreen = ({ user, invites, onAccept, onCreateOrg, onLogout }: { 
   };
 
   return (
-    <div className="min-h-screen bg-[#0D1C32] flex flex-col items-center justify-center p-6 text-center">
+    <div className="min-h-screen bg-primary flex flex-col items-center justify-center p-6 text-center">
       <div className="max-w-md w-full bg-white rounded-[2.5rem] p-10 shadow-2xl">
-        <div className="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center mx-auto mb-8 text-[#0D1C32]">
+        <div className="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center mx-auto mb-8 text-primary">
           <Icons.Security size={40} />
         </div>
-        <h1 className="text-3xl font-bold font-headline text-[#0D1C32] mb-3">Welcome to EthioVault</h1>
+        <h1 className="text-3xl font-bold font-headline text-primary mb-3">Welcome to EthioVault</h1>
         <p className="text-slate-500 text-sm mb-10">Your account is active, but you need to be part of a store to see items.</p>
 
         {userInvites.length > 0 ? (
@@ -2761,13 +2813,13 @@ const OnboardingScreen = ({ user, invites, onAccept, onCreateOrg, onLogout }: { 
             value={orgName}
             onChange={(e) => setOrgName(e.target.value)}
             placeholder="Store name"
-            className="w-full px-4 py-3 rounded-2xl bg-slate-100 text-[#0D1C32] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0D1C32]"
+            className="w-full px-4 py-3 rounded-2xl bg-slate-100 text-primary placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary"
           />
           {createError && <p className="text-sm text-red-600 text-center">{createError}</p>}
           <button
             type="submit"
             disabled={creating || !orgName.trim()}
-            className="w-full py-4 bg-[#0D1C32] text-white rounded-2xl font-headline font-bold text-sm shadow-xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-60 disabled:hover:scale-100"
+            className="w-full py-4 bg-primary text-white rounded-2xl font-headline font-bold text-sm shadow-xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-60 disabled:hover:scale-100"
           >
             {creating ? 'Creating\u2026' : 'Create Store & Continue'}
           </button>
@@ -2791,8 +2843,8 @@ const SCREEN_DEPS: Partial<Record<Screen, string[]>> = {
   DASHBOARD:      ['transactions'],
   VAULT_DASHBOARD:['transactions', 'warehouses'],
   WAREHOUSE:      ['transactions', 'warehouses'],
-  BANK:           ['bank_accounts', 'bank_transactions', 'loans', 'users'],
-  LOANS:          ['bank_accounts', 'bank_transactions', 'loans', 'users'],
+  BANK:           ['bank_accounts', 'bank_transactions', 'loans', 'users', 'inventory'],
+  LOANS:          ['bank_accounts', 'bank_transactions', 'loans', 'users', 'inventory'],
   VAULT:          ['inventory', 'warehouses'],
   ITEMS:          ['inventory', 'warehouses'],
   NETWORK:        ['transactions', 'warehouses'],
@@ -2860,7 +2912,10 @@ function App() {
   // Role-aware data scoping. Admins see the full org; clerks only see
   // data they touched themselves so manager-level totals stay private.
   // -----------------------------------------------------------------
-  const isAdminUser = userData?.role === 'admin';
+  // Anyone who isn't a clerk (staff member) can see the full org's data —
+  // that includes Manager (admin) and Warehouse Manager. Clerks remain
+  // restricted to rows they personally created.
+  const isAdminUser = userData?.role !== 'clerk';
   const myUid = user?.uid;
   const visibleBankAccounts = React.useMemo(() => (
     isAdminUser
@@ -2880,6 +2935,22 @@ function App() {
   const visibleUsers = React.useMemo(() => (
     isAdminUser ? users : users.filter(u => u.id === myUid || u.uid === myUid)
   ), [users, isAdminUser, myUid]);
+
+  // Unified list of "trust contacts" — anyone we've ever lent items to,
+  // taken/given a loan from, or saved as a favorite store. Used for both
+  // the LendScreen recipient picker and the Loan modal counterparty input
+  // so the two flows share a single contact book.
+  const trustContacts = React.useMemo(() => {
+    const set = new Set<string>();
+    favorites.forEach(f => f && set.add(f));
+    loans.forEach(l => l.counterparty && set.add(l.counterparty));
+    transactions.forEach(t => {
+      if ((t.type === 'LENT' || t.type === 'RETURNED' || t.type === 'LOAN' || t.type === 'REPAYMENT') && t.location) {
+        set.add(t.location);
+      }
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [favorites, loans, transactions]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -2958,7 +3029,7 @@ function App() {
     if (!user) return;
 
     const isClerk = userData?.role === 'clerk';
-    const isAdminUser = userData?.role === 'admin' || user?.email === 'aman.teferi.80@gmail.com';
+    const isAdminUser = userData?.role !== 'clerk' || user?.email === 'aman.teferi.80@gmail.com';
 
     const fetchInventory = async () => {
       try {
@@ -3465,7 +3536,7 @@ function App() {
     }
   };
 
-  const handleSettleLentItem = async (item: any, cashReceived: number) => {
+  const handleSettleLentItem = async (item: any, cashReceived: number, bankAccountId?: string) => {
     const amount = Number(cashReceived);
     if (isNaN(amount)) {
       console.error("Invalid settlement amount:", cashReceived);
@@ -3479,7 +3550,7 @@ function App() {
         lastUpdated: new Date().toISOString()
       }, { merge: true });
 
-      await addDoc(collection(db, 'transactions'), {
+      const txRef = await addDoc(collection(db, 'transactions'), {
         type: 'SALE',
         item: `${item.name} (Settled from ${item.lentTo})`,
         amount: amount,
@@ -3490,6 +3561,22 @@ function App() {
         imei: item.imei,
         location: item.lentTo,
       });
+
+      // Optionally pair the cash with a bank deposit so it shows on the
+      // selected account's ledger.
+      if (bankAccountId && amount > 0) {
+        await addDoc(collection(db, 'bankTransactions'), {
+          bankAccountId,
+          transactionId: txRef.id,
+          type: 'DEPOSIT',
+          amount,
+          activity: 'Lent Item Settled',
+          project: 'Lend',
+          to: item.lentTo || '',
+          date: new Date().toISOString(),
+        });
+      }
+
       setSelectedItemForHistory(null);
     } catch (e) {
       handleDbError(e, OperationType.WRITE, 'inventory/transactions');
@@ -3613,10 +3700,28 @@ function App() {
       return;
     }
     try {
+      const amount = Number(loan.amount || 0);
+      const isOutflow = loan.type === 'GIVEN'; // we paid the counterparty
+      const counterparty = loan.counterparty || 'Unknown';
+
+      // Always create a transactions row so the loan shows up in All
+      // Transactions and so any paired bank movement has a transaction_id
+      // to satisfy the bank_transactions FK.
+      const txRef = await addDoc(collection(db, 'transactions'), {
+        type: 'LOAN',
+        item: isOutflow ? `Loan to ${counterparty}` : `Loan from ${counterparty}`,
+        amount: isOutflow ? -amount : amount,
+        timestamp: new Date().toISOString(),
+        clerk: user?.displayName || 'Unknown',
+        clerkId: user?.uid,
+        status: 'COMPLETED',
+        location: counterparty,
+      });
+
       await addDoc(collection(db, 'loans'), {
         type: loan.type || 'GIVEN',
         counterparty: loan.counterparty,
-        amount: Number(loan.amount || 0),
+        amount,
         bankAccountId: loan.bankAccountId || null,
         status: 'OUTSTANDING',
         date: new Date().toISOString(),
@@ -3626,15 +3731,15 @@ function App() {
       });
 
       // If linked to a bank account, record the cash movement.
-      if (loan.bankAccountId && Number(loan.amount) > 0) {
-        const isOutflow = loan.type === 'GIVEN'; // we paid the counterparty
+      if (loan.bankAccountId && amount > 0) {
         await addDoc(collection(db, 'bankTransactions'), {
           bankAccountId: loan.bankAccountId,
+          transactionId: txRef.id,
           type: isOutflow ? 'WITHDRAWAL' : 'DEPOSIT',
-          amount: Number(loan.amount),
+          amount,
           activity: isOutflow ? 'Loan Given' : 'Loan Received',
           project: 'Loan',
-          to: loan.counterparty || '',
+          to: counterparty,
           date: new Date().toISOString(),
         });
       }
@@ -3648,6 +3753,22 @@ function App() {
       const remaining = Number(loan.amount || 0);
       const paid = amount && amount > 0 && amount < remaining ? amount : remaining;
       const isPartial = paid < remaining;
+      const isInflow = loan.type === 'GIVEN'; // counterparty paid us back
+      const counterparty = loan.counterparty || 'Unknown';
+
+      // Mirror the audit row first so any bank movement has a transaction_id.
+      const txRef = await addDoc(collection(db, 'transactions'), {
+        type: 'REPAYMENT',
+        item: isInflow
+          ? `Repayment from ${counterparty}${isPartial ? ' (partial)' : ''}`
+          : `Repayment to ${counterparty}${isPartial ? ' (partial)' : ''}`,
+        amount: isInflow ? paid : -paid,
+        timestamp: new Date().toISOString(),
+        clerk: user?.displayName || 'Unknown',
+        clerkId: user?.uid,
+        status: isPartial ? 'PENDING' : 'SETTLED',
+        location: counterparty,
+      });
 
       if (isPartial) {
         await updateDoc(doc(db, 'loans', loan.id), { amount: remaining - paid });
@@ -3657,16 +3778,16 @@ function App() {
 
       // Pair settlement with reverse cash movement when a bank account is linked.
       if (loan.bankAccountId && paid > 0) {
-        const isInflow = loan.type === 'GIVEN'; // counterparty paid us back
         await addDoc(collection(db, 'bankTransactions'), {
           bankAccountId: loan.bankAccountId,
+          transactionId: txRef.id,
           type: isInflow ? 'DEPOSIT' : 'WITHDRAWAL',
           amount: paid,
           activity: isPartial
             ? (isInflow ? 'Loan Repaid (Partial · In)' : 'Loan Repaid (Partial · Out)')
             : (isInflow ? 'Loan Repaid (In)' : 'Loan Repaid (Out)'),
           project: 'Loan',
-          to: loan.counterparty || '',
+          to: counterparty,
           date: new Date().toISOString(),
         });
       }
@@ -3700,7 +3821,7 @@ function App() {
 
   if (!isAuthReady) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D1C32]">
+      <div className="min-h-screen flex items-center justify-center bg-primary">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-white font-headline font-bold tracking-widest uppercase text-xs">Loading Items...</p>
@@ -3764,8 +3885,8 @@ function App() {
                     onOpenSidebar={() => setIsSidebarOpen(true)}
                   />
                 )}
-                {screen === 'BANK' && <BankScreen accounts={visibleBankAccounts} transactions={visibleBankTransactions} onAddAccount={handleAddBankAccount} onOpenSidebar={() => setIsSidebarOpen(true)} users={visibleUsers} loans={loans} onAddLoan={handleAddLoan} onSettleLoan={handleSettleLoan} />}
-                {screen === 'LOANS' && <BankScreen accounts={visibleBankAccounts} transactions={visibleBankTransactions} onAddAccount={handleAddBankAccount} onOpenSidebar={() => setIsSidebarOpen(true)} users={visibleUsers} loans={loans} onAddLoan={handleAddLoan} onSettleLoan={handleSettleLoan} initialTab="Loans" />}
+                {screen === 'BANK' && <BankScreen accounts={visibleBankAccounts} transactions={visibleBankTransactions} onAddAccount={handleAddBankAccount} onOpenSidebar={() => setIsSidebarOpen(true)} users={visibleUsers} loans={loans} onAddLoan={handleAddLoan} onSettleLoan={handleSettleLoan} trustContacts={trustContacts} inventory={inventory} onReturnItem={handleReturn} onSettleItem={handleSettleLentItem} />}
+                {screen === 'LOANS' && <BankScreen accounts={visibleBankAccounts} transactions={visibleBankTransactions} onAddAccount={handleAddBankAccount} onOpenSidebar={() => setIsSidebarOpen(true)} users={visibleUsers} loans={loans} onAddLoan={handleAddLoan} onSettleLoan={handleSettleLoan} initialTab="Loans" trustContacts={trustContacts} inventory={inventory} onReturnItem={handleReturn} onSettleItem={handleSettleLentItem} />}
                 {(screen === 'VAULT' || screen === 'ITEMS') && (
                   <VaultScreen 
                     inventory={inventory} 
@@ -3843,7 +3964,7 @@ function App() {
                     onBack={() => setScreen('DASHBOARD')} 
                     inventory={inventory} 
                     onLend={handleLend} 
-                    stores={favorites}
+                    stores={trustContacts}
                     onCreateStore={handleToggleFavorite}
                     favorites={favorites} 
                     onToggleFavorite={handleToggleFavorite} 
@@ -3909,22 +4030,22 @@ function App() {
                                 <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                                 <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Operations Center</p>
                              </div>
-                             <h2 className="text-4xl font-headline font-bold tracking-tighter text-[#0D1C32]">Sales Activity</h2>
+                             <h2 className="text-4xl font-headline font-bold tracking-tighter text-primary">Sales Activity</h2>
                            </div>
                         </div>
                         <div className="flex items-center gap-3">
-                           <button onClick={() => setScreen('SALE')} className="flex items-center gap-2 bg-[#0D1C32] text-white px-6 py-4 rounded-2xl font-bold text-sm shadow-xl shadow-[#0D1C32]/10 hover:opacity-90 active:scale-95 transition-all">
+                           <button onClick={() => setScreen('SALE')} className="flex items-center gap-2 bg-primary text-white px-6 py-4 rounded-2xl font-bold text-sm shadow-xl shadow-primary/10 hover:opacity-90 active:scale-95 transition-all">
                               <Icons.Plus size={20} />
                               <span>New Sale</span>
                            </button>
-                           <button onClick={() => setScreen('PURCHASE')} className="flex items-center gap-2 bg-white text-[#0D1C32] border border-slate-100 px-6 py-4 rounded-2xl font-bold text-sm shadow-sm hover:bg-slate-50 active:scale-95 transition-all">
+                           <button onClick={() => setScreen('PURCHASE')} className="flex items-center gap-2 bg-white text-primary border border-slate-100 px-6 py-4 rounded-2xl font-bold text-sm shadow-sm hover:bg-slate-50 active:scale-95 transition-all">
                               <Icons.Package size={20} />
                               <span>Log Purchase</span>
                            </button>
                         </div>
                      </header>
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        <div onClick={() => setScreen('SALE')} className="bg-[#0D1C32] p-8 rounded-[3rem] text-white shadow-2xl shadow-[#0D1C32]/20 hover:-translate-y-2 transition-all cursor-pointer relative overflow-hidden group">
+                        <div onClick={() => setScreen('SALE')} className="bg-primary p-8 rounded-[3rem] text-white shadow-2xl shadow-primary/20 hover:-translate-y-2 transition-all cursor-pointer relative overflow-hidden group">
                            <Icons.Plus size={120} className="absolute -bottom-4 -right-4 opacity-10 group-hover:scale-110 transition-transform" />
                            <div className="bg-white/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-6">
                               <Icons.Sales size={32} />
@@ -3933,17 +4054,17 @@ function App() {
                            <p className="text-white/60 text-sm leading-relaxed">Instantly add a sale transaction with IMEI tracking and automated profit calculation.</p>
                         </div>
                         <div onClick={() => setScreen('SALES_MANAGER')} className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm hover:-translate-y-2 transition-all cursor-pointer relative overflow-hidden group">
-                           <div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 text-[#0D1C32]">
+                           <div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 text-primary">
                               <Icons.Ledger size={32} />
                            </div>
-                           <h3 className="text-2xl font-headline font-bold mb-2 text-[#0D1C32]">View All Sales</h3>
+                           <h3 className="text-2xl font-headline font-bold mb-2 text-primary">View All Sales</h3>
                            <p className="text-slate-400 text-sm leading-relaxed">Review the complete history of all sales across all branches and personnel.</p>
                         </div>
                         <div onClick={() => setScreen('LEDGER')} className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm hover:-translate-y-2 transition-all cursor-pointer relative overflow-hidden group">
-                           <div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 text-[#0D1C32]">
+                           <div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 text-primary">
                               <Icons.History size={32} />
                            </div>
-                           <h3 className="text-2xl font-headline font-bold mb-2 text-[#0D1C32]">Activity Timeline</h3>
+                           <h3 className="text-2xl font-headline font-bold mb-2 text-primary">Activity Timeline</h3>
                            <p className="text-slate-400 text-sm leading-relaxed">See all movements including lends, returns, and transfers in chronological order.</p>
                         </div>
                      </div>

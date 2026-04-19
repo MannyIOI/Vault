@@ -26,7 +26,7 @@ export const StoreDropdown = ({ value, onChange, stores, favorites, onToggleFavo
         onClick={() => setIsOpen(!isOpen)}
         className="w-full bg-slate-50 border-none rounded-xl py-4 px-4 font-headline font-bold text-primary focus:ring-2 focus:ring-primary/20 transition-all text-left flex justify-between items-center"
       >
-        {value || 'Select a store...'}
+        {value || 'Select a Contact...'}
         <ChevronDown size={20} />
       </button>
       {isOpen && (

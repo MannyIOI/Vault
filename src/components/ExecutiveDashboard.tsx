@@ -57,23 +57,49 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ transact
   }, [transactions]);
 
   const metrics = useMemo(() => {
-    const totalRev = transactions.filter(t => t.type === 'SALE').reduce((acc, t) => acc + t.amount, 0);
-    const totalCost = transactions.filter(t => t.type === 'EXPENSE' || t.type === 'PURCHASE').reduce((acc, t) => acc + Math.abs(t.amount), 0);
-    const profit = totalRev - totalCost;
-    const margin = totalRev > 0 ? (profit / totalRev) * 100 : 0;
+    const sales     = transactions.filter(t => t.type === 'SALE');
+    const expenses  = transactions.filter(t => t.type === 'EXPENSE');
+    const purchases = transactions.filter(t => t.type === 'PURCHASE');
 
-    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const recent = transactions.filter(t => new Date(t.timestamp).getTime() >= cutoff);
-    const recentRev = recent.filter(t => t.type === 'SALE').reduce((a, t) => a + t.amount, 0);
-    const recentCost = recent.filter(t => t.type === 'EXPENSE' || t.type === 'PURCHASE').reduce((a, t) => a + Math.abs(t.amount), 0);
+    const totalRev   = sales.reduce((a, t) => a + t.amount, 0);
+    const totalExp   = expenses.reduce((a, t) => a + Math.abs(t.amount), 0);
+    const totalCogs  = purchases.reduce((a, t) => a + Math.abs(t.amount), 0);
+    const totalCost  = totalExp + totalCogs;
+    const profit     = totalRev - totalCost;
+    const margin     = totalRev > 0 ? (profit / totalRev) * 100 : 0;
+    const avgSale    = sales.length > 0 ? totalRev / sales.length : 0;
+
+    const now      = Date.now();
+    const day      = 24 * 60 * 60 * 1000;
+    const cutoff30 = now - 30 * day;
+    const cutoff60 = now - 60 * day;
+    const within = (t: Transaction, from: number, to = Infinity) => {
+      const ts = new Date(t.timestamp).getTime();
+      return ts >= from && ts < to;
+    };
+    const recent      = transactions.filter(t => within(t, cutoff30));
+    const recentRev   = recent.filter(t => t.type === 'SALE').reduce((a, t) => a + t.amount, 0);
+    const recentCost  = recent.filter(t => t.type === 'EXPENSE' || t.type === 'PURCHASE').reduce((a, t) => a + Math.abs(t.amount), 0);
+    const prevRev     = transactions.filter(t => t.type === 'SALE' && within(t, cutoff60, cutoff30)).reduce((a, t) => a + t.amount, 0);
+    const prevCost    = transactions.filter(t => (t.type === 'EXPENSE' || t.type === 'PURCHASE') && within(t, cutoff60, cutoff30)).reduce((a, t) => a + Math.abs(t.amount), 0);
+    const prevProfit  = prevRev - prevCost;
+    const recentProfit = recentRev - recentCost;
+    const growth = prevProfit !== 0
+      ? ((recentProfit - prevProfit) / Math.abs(prevProfit)) * 100
+      : (recentProfit > 0 ? 100 : 0);
 
     return {
       mrr: totalRev,
       mrc: totalCost,
-      profit: profit,
+      profit,
       margin: margin.toFixed(1),
       recentRev,
       recentCost,
+      cogs: totalCogs,
+      expenses: totalExp,
+      avgSale: Math.round(avgSale),
+      growth: growth.toFixed(1),
+      salesCount: sales.length,
     };
   }, [transactions]);
 
@@ -129,16 +155,16 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ transact
                     <p className="text-lg font-bold">{metrics.mrr.toLocaleString()} ETB</p>
                   </div>
                   <div className="bg-white/5 p-4 rounded-2xl">
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">New Sales</p>
-                    <p className="text-lg font-bold text-emerald-400">0 ETB</p>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Last 30 Days</p>
+                    <p className="text-lg font-bold text-emerald-400">{metrics.recentRev.toLocaleString()} ETB</p>
                   </div>
                   <div className="bg-white/5 p-4 rounded-2xl">
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Lost Sales</p>
-                    <p className="text-lg font-bold text-red-400">0 ETB</p>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Transactions</p>
+                    <p className="text-lg font-bold text-blue-400">{metrics.salesCount.toLocaleString()}</p>
                   </div>
                   <div className="bg-white/5 p-4 rounded-2xl">
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Extra Sales</p>
-                    <p className="text-lg font-bold text-blue-400">0 ETB</p>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Average Sale</p>
+                    <p className="text-lg font-bold">{metrics.avgSale.toLocaleString()} ETB</p>
                   </div>
                 </div>
               </div>
@@ -179,20 +205,20 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ transact
               <div className="mt-8 pt-8 border-t border-slate-50 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-[#1A1D23]">
                   <div className="bg-slate-50 p-4 rounded-2xl">
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Regular Costs</p>
-                    <p className="text-lg font-bold">0 ETB</p>
-                  </div>
-                  <div className="bg-slate-50 p-4 rounded-2xl">
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Ad Expenses</p>
-                    <p className="text-lg font-bold">0 ETB</p>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Cost of Goods</p>
+                    <p className="text-lg font-bold">{metrics.cogs.toLocaleString()} ETB</p>
                   </div>
                   <div className="bg-slate-50 p-4 rounded-2xl">
                     <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Expenses</p>
-                    <p className="text-lg font-bold">0 ETB</p>
+                    <p className="text-lg font-bold">{metrics.expenses.toLocaleString()} ETB</p>
                   </div>
                   <div className="bg-slate-50 p-4 rounded-2xl">
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Payroll</p>
-                    <p className="text-lg font-bold">0 ETB</p>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Last 30 Days</p>
+                    <p className="text-lg font-bold">{metrics.recentCost.toLocaleString()} ETB</p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-2xl">
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Total Cost</p>
+                    <p className="text-lg font-bold">{metrics.mrc.toLocaleString()} ETB</p>
                   </div>
                 </div>
               </div>
@@ -240,12 +266,12 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ transact
                     <p className="text-lg font-bold">{metrics.margin}%</p>
                   </div>
                   <div className="bg-emerald-50 p-4 rounded-2xl">
-                    <p className="text-[10px] uppercase font-bold text-emerald-600/60 tracking-widest mb-1">Growth</p>
-                    <p className="text-lg font-bold">0%</p>
+                    <p className="text-[10px] uppercase font-bold text-emerald-600/60 tracking-widest mb-1">Growth (30d)</p>
+                    <p className="text-lg font-bold">{metrics.growth}%</p>
                   </div>
                   <div className="bg-emerald-50 p-4 rounded-2xl">
                     <p className="text-[10px] uppercase font-bold text-emerald-600/60 tracking-widest mb-1">Average Sale</p>
-                    <p className="text-lg font-bold">0 ETB</p>
+                    <p className="text-lg font-bold">{metrics.avgSale.toLocaleString()} ETB</p>
                   </div>
                 </div>
               </div>
@@ -325,26 +351,26 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ transact
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <button 
             onClick={() => onActionClick?.('SALE')}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#0D1C32] text-white px-6 py-3 rounded-xl shadow-xl shadow-[#0D1C32]/10 text-xs font-bold hover:opacity-90 transition-all active:scale-95"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-primary text-white px-6 py-3 rounded-xl shadow-xl shadow-primary/10 text-xs font-bold hover:opacity-90 transition-all active:scale-95"
           >
             <Icons.Plus size={16} />
             <span>New Sale</span>
           </button>
           <button 
             onClick={() => onActionClick?.('PURCHASE')}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white px-6 py-3 rounded-xl border border-slate-100 shadow-sm text-xs font-bold hover:bg-slate-50 transition-all active:scale-95 text-[#0D1C32]"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white px-6 py-3 rounded-xl border border-slate-100 shadow-sm text-xs font-bold hover:bg-slate-50 transition-all active:scale-95 text-primary"
           >
             <Icons.Package size={16} />
             <span>Log Purchase</span>
           </button>
         </div>
         <div className="flex-1 relative group w-full">
-          <Icons.Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-[#0D1C32] transition-colors" size={18} />
+          <Icons.Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-primary transition-colors" size={18} />
           <input 
             type="text" 
             placeholder="Search all sales or items..."
             onFocus={() => onSearchClick?.()}
-            className="w-full bg-white border border-slate-100 rounded-xl py-3 pl-12 pr-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/5 transition-all shadow-sm outline-none cursor-pointer"
+            className="w-full bg-white border border-slate-100 rounded-xl py-3 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/5 transition-all shadow-sm outline-none cursor-pointer"
             readOnly
           />
         </div>

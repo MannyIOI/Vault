@@ -124,7 +124,7 @@ export type Screen =
 
 export interface Transaction {
   id: string;
-  type: 'SALE' | 'PURCHASE' | 'LENT' | 'BORROWED' | 'EXPENSE' | 'VOID' | 'RETURNED' | 'TRANSFER';
+  type: 'SALE' | 'PURCHASE' | 'LENT' | 'BORROWED' | 'EXPENSE' | 'VOID' | 'RETURNED' | 'TRANSFER' | 'LOAN' | 'REPAYMENT';
   item: string;
   amount: number;
   timestamp: string;

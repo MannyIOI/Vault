@@ -42,12 +42,12 @@ export const WarehouseScreen: React.FC<WarehouseScreenProps> = ({
                  <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                  <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Warehouse Info</p>
               </div>
-              <h2 className="text-4xl font-headline font-black text-[#0D1C32] tracking-tighter uppercase">Storage List</h2>
+              <h2 className="text-4xl font-headline font-black text-primary tracking-tighter uppercase">Storage List</h2>
             </div>
           </div>
           <button 
             onClick={() => setShowAddModal(true)}
-            className="hidden sm:flex items-center gap-2 bg-[#0D1C32] text-white px-8 py-4 rounded-2xl font-bold text-sm shadow-xl hover:opacity-90 transition-all hover:scale-105 active:scale-95 group"
+            className="hidden sm:flex items-center gap-2 bg-primary text-white px-8 py-4 rounded-2xl font-bold text-sm shadow-xl hover:opacity-90 transition-all hover:scale-105 active:scale-95 group"
           >
             <Icons.Plus size={20} className="group-hover:rotate-90 transition-transform" />
             <span>Add Warehouse</span>
@@ -58,7 +58,7 @@ export const WarehouseScreen: React.FC<WarehouseScreenProps> = ({
           {warehouses.map(w => (
             <div key={w.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative group hover:shadow-md transition-all">
               <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-[#0D1C32]">
+                <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-primary">
                   <Icons.Vault size={24} />
                 </div>
                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -74,11 +74,11 @@ export const WarehouseScreen: React.FC<WarehouseScreenProps> = ({
               <div className="flex justify-between items-center pt-4 border-t border-slate-50">
                 <div className="flex flex-col">
                   <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Inventory</span>
-                  <span className="font-headline font-bold text-[#0D1C32]">View Items</span>
+                  <span className="font-headline font-bold text-primary">View Items</span>
                 </div>
                 <button 
                   onClick={() => setScreen('ITEMS', w.id)}
-                  className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:bg-[#0D1C32] hover:text-white transition-all"
+                  className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-all"
                 >
                   <Icons.ArrowRight size={18} />
                 </button>
@@ -97,11 +97,11 @@ export const WarehouseScreen: React.FC<WarehouseScreenProps> = ({
           <div className="space-y-6">
             <h3 className="font-headline font-semibold text-lg px-2">Quick Actions</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <button onClick={() => setScreen('SALE')} className="flex flex-col items-center gap-2 bg-[#0D1C32] text-white p-6 rounded-[2rem] hover:opacity-90 transition-all active:scale-95 shadow-xl shadow-[#0D1C32]/10">
+              <button onClick={() => setScreen('SALE')} className="flex flex-col items-center gap-2 bg-primary text-white p-6 rounded-[2rem] hover:opacity-90 transition-all active:scale-95 shadow-xl shadow-primary/10">
                 <Icons.NewSale size={32} />
                 <span className="font-label text-sm font-bold">New Sale</span>
               </button>
-              <button onClick={() => setScreen('PURCHASE')} className="flex flex-col items-center gap-2 bg-white border border-slate-100 text-[#0D1C32] p-6 rounded-[2rem] hover:bg-slate-50 transition-all active:scale-95 shadow-sm">
+              <button onClick={() => setScreen('PURCHASE')} className="flex flex-col items-center gap-2 bg-white border border-slate-100 text-primary p-6 rounded-[2rem] hover:bg-slate-50 transition-all active:scale-95 shadow-sm">
                 <Icons.LogPurchase size={32} />
                 <span className="font-label text-sm font-bold">Log Purchase</span>
               </button>
@@ -117,7 +117,7 @@ export const WarehouseScreen: React.FC<WarehouseScreenProps> = ({
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl">
-            <h3 className="text-2xl font-headline font-bold mb-6 text-[#0D1C32]">Configure Warehouse</h3>
+            <h3 className="text-2xl font-headline font-bold mb-6 text-primary">Configure Warehouse</h3>
             <div className="space-y-6">
                <div>
                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest block mb-2">Warehouse Name</label>
@@ -125,7 +125,7 @@ export const WarehouseScreen: React.FC<WarehouseScreenProps> = ({
                    type="text" 
                    value={newWarehouse.name}
                    onChange={e => setNewWarehouse({...newWarehouse, name: e.target.value})}
-                   className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/10" 
+                   className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-primary/10" 
                    placeholder="e.g. Merkato Distribution Center"
                  />
                </div>
@@ -135,7 +135,7 @@ export const WarehouseScreen: React.FC<WarehouseScreenProps> = ({
                    type="text" 
                    value={newWarehouse.location}
                    onChange={e => setNewWarehouse({...newWarehouse, location: e.target.value})}
-                   className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#0D1C32]/10" 
+                   className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-primary/10" 
                    placeholder="e.g. Merkato, Addis Ababa"
                  />
                </div>
@@ -147,7 +147,7 @@ export const WarehouseScreen: React.FC<WarehouseScreenProps> = ({
                       setShowAddModal(false);
                       setNewWarehouse({ name: '', location: '' });
                     }}
-                    className="flex-1 py-4 bg-[#0D1C32] text-white rounded-2xl font-bold shadow-lg shadow-[#0D1C32]/20"
+                    className="flex-1 py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20"
                   >
                     Confirm Creation
                   </button>
