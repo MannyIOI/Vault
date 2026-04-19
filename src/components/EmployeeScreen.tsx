@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { Icons } from '../types';
 import { motion, AnimatePresence } from 'motion/react';

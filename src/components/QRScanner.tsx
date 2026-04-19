@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Icons } from '../types';
@@ -11,46 +13,60 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  // Keep latest callbacks in refs so we can safely use [] as the effect deps
+  // (otherwise every parent re-render passes new closures, restarting the
+  // camera mid-scan and making it impossible to scan again).
+  const onScanRef = useRef(onScan);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onScanRef.current = onScan; }, [onScan]);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
+    let cancelled = false;
+    let didFire = false;
+
     const startScanner = async () => {
       try {
         const html5QrCode = new Html5Qrcode("qr-reader");
         scannerRef.current = html5QrCode;
 
-        const config = { 
-          fps: 10, 
+        const config = {
+          fps: 10,
           qrbox: { width: 250, height: 250 },
           aspectRatio: 1.0
         };
 
-        // Prefer back camera
         await html5QrCode.start(
-          { facingMode: "environment" }, 
-          config, 
+          { facingMode: "environment" },
+          config,
           (decodedText) => {
-            onScan(decodedText);
-            onClose();
+            // Guard against rapid repeat detections after the modal already
+            // requested close.
+            if (didFire) return;
+            didFire = true;
+            onScanRef.current(decodedText);
+            onCloseRef.current();
           },
-          () => {} // Ignore scan errors
+          () => {} // Ignore per-frame scan errors
         );
-        setIsReady(true);
+        if (!cancelled) setIsReady(true);
       } catch (err: any) {
         console.error("Failed to start scanner:", err);
-        setError("Camera access denied or not found. Please ensure you have granted camera permissions.");
+        if (!cancelled) setError("Camera access denied or not found. Please ensure you have granted camera permissions.");
       }
     };
 
     startScanner();
 
     return () => {
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop().then(() => {
-          scannerRef.current?.clear();
-        }).catch(err => console.error("Failed to stop scanner:", err));
+      cancelled = true;
+      const s = scannerRef.current;
+      if (s && s.isScanning) {
+        // Fire-and-forget; await would block React's cleanup phase.
+        s.stop().then(() => s.clear()).catch(err => console.error("Failed to stop scanner:", err));
       }
     };
-  }, [onScan, onClose]);
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black/90 z-[200] flex flex-col items-center justify-center p-6 backdrop-blur-md">

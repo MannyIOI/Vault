@@ -1,9 +1,14 @@
+'use client';
+
 import React, { useState } from 'react';
 import { Icons, Transaction, Warehouse } from '../types';
 
 interface WarehouseScreenProps {
   setScreen: (s: any, warehouseId?: string) => void;
   warehouses: Warehouse[];
+  transactions?: Transaction[];
+  metrics?: { cashOnHand: number; inventoryValue: number; receivable: number; payable: number };
+  onTransactionClick?: (tx: Transaction) => void;
   onAddWarehouse: (w: Partial<Warehouse>) => void;
   onUpdateWarehouse: (id: string, w: Partial<Warehouse>) => void;
   onDeleteWarehouse: (id: string) => void;

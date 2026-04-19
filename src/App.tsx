@@ -1,35 +1,37 @@
+'use client';
+
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Icons, Screen, Transaction } from './types';
-import { 
-  auth, 
-  db, 
-  loginWithGoogle, 
-  logout as firebaseLogout, 
-  handleFirestoreError, 
+import {
+  auth,
+  db,
+  loginWithEmail,
+  signUpWithEmail,
+  logout,
+  handleDbError,
   OperationType,
-  Timestamp
-} from './firebase';
-import { GoogleGenAI } from "@google/genai";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-import { 
-  collection, 
-  onSnapshot, 
-  query, 
-  orderBy, 
-  addDoc, 
-  updateDoc, 
-  doc, 
+  Timestamp,
+  collection,
+  query,
+  orderBy,
+  addDoc,
+  updateDoc,
+  doc,
   setDoc,
   serverTimestamp,
   where,
   getDocs,
   getDoc,
-  deleteDoc
-} from 'firebase/firestore';
-import { onAuthStateChanged, User } from 'firebase/auth';
+  deleteDoc,
+  onAuthStateChanged,
+  clearOrgCache,
+  type User,
+} from './lib/db';
+
+
+
 import { QRScanner } from './components/QRScanner';
 import { MoneyInput } from './components/MoneyInput';
 import { StoreDropdown } from './components/StoreDropdown';
@@ -41,7 +43,7 @@ import { EmployeeScreen } from './components/EmployeeScreen';
 import { BankAccount, BankTransaction, Warehouse, InventoryItem } from './types';
 
 // --- Error Boundary ---
-class ErrorBoundary extends (React.Component as any) {
+class ErrorBoundary extends React.Component<{ children?: React.ReactNode }, { hasError: boolean; error: any }> {
   constructor(props: any) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -225,7 +227,7 @@ const NotificationsOverlay = ({ isOpen, onClose, notifications, setScreen }: { i
                   <h4 className="font-bold text-xs text-on-surface">{n.title}</h4>
                   <span className="text-[10px] text-slate-400">{new Date(n.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed">{n.msg}</p>
+                <p className="text-xs text-slate-500 leading-relaxed">{n.body}</p>
               </div>
             )) : (
               <div className="p-8 text-center text-slate-400 text-xs">No notifications</div>
@@ -287,12 +289,12 @@ const ItemHistoryOverlay = ({ item, transactions, onClose, onReturn, onSettle }:
                   <div className="bg-white/10 p-4 rounded-2xl print:bg-slate-50 print:border print:border-slate-100">
                     <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1 print:text-slate-500">Current Status</p>
                     <p className={`font-headline font-bold ${item.status === 'IN_STOCK' ? 'text-emerald-400 print:text-emerald-600' : 'text-amber-400 print:text-amber-600'}`}>
-                      {item.status.replace(/_/g, ' ')}
+                      {(item.status || 'UNKNOWN').replace(/_/g, ' ')}
                     </p>
                   </div>
                   <div className="bg-white/10 p-4 rounded-2xl print:bg-slate-50 print:border print:border-slate-100">
                     <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1 print:text-slate-500">Valuation</p>
-                    <p className="font-headline font-bold print:text-slate-900">{item.valuation.toLocaleString()} ETB</p>
+                    <p className="font-headline font-bold print:text-slate-900">{Number(item.valuation || 0).toLocaleString()} ETB</p>
                   </div>
                 </div>
               </div>
@@ -407,43 +409,110 @@ const ItemHistoryOverlay = ({ item, transactions, onClose, onReturn, onSettle }:
 
 // --- Screens ---
 
-const LoginScreen = ({ onLogin }: { onLogin: () => void }) => (
-  <div className="min-h-screen flex flex-col bg-[#0D1C32]">
-    <header className="fixed top-0 w-full z-50 bg-slate-900/50 backdrop-blur-md flex justify-between items-center px-6 py-4">
-      <div className="text-xl font-bold text-white tracking-widest uppercase font-headline">Transaction History</div>
-      <div className="flex items-center gap-3">
-        <Icons.Security size={20} className="text-white" />
-        <span className="text-white/80 font-label text-[10px] uppercase tracking-widest">Secure Access</span>
-      </div>
-    </header>
-    <main className="flex-grow flex items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500 rounded-full blur-[120px]" />
-      </div>
-      
-      <div className="w-full max-w-md bg-white rounded-[2.5rem] overflow-hidden shadow-2xl relative z-10 p-10 text-center">
-        <div className="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center mx-auto mb-8 text-[#0D1C32]">
-          <Icons.Shield size={40} />
+const LoginScreen = ({ onLogin }: { onLogin: (email: string, password: string, mode: 'signin' | 'signup', displayName?: string) => Promise<void> }) => {
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      await onLogin(email.trim(), password, mode, displayName.trim() || undefined);
+    } catch (err: any) {
+      setError(err?.message || 'Authentication failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col bg-[#0D1C32]">
+      <header className="fixed top-0 w-full z-50 bg-slate-900/50 backdrop-blur-md flex justify-between items-center px-6 py-4">
+        <div className="text-xl font-bold text-white tracking-widest uppercase font-headline">Transaction History</div>
+        <div className="flex items-center gap-3">
+          <Icons.Security size={20} className="text-white" />
+          <span className="text-white/80 font-label text-[10px] uppercase tracking-widest">Secure Access</span>
         </div>
-        <h1 className="text-3xl font-bold font-headline text-[#0D1C32] mb-3">EthioVault</h1>
-        <p className="text-slate-500 text-sm mb-10">Secure items & sales management for mobile stores.</p>
-        
-        <button 
-          onClick={onLogin} 
-          className="w-full bg-[#0D1C32] text-white py-5 rounded-2xl font-headline font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex justify-center items-center gap-3"
-        >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/action/google.svg" alt="Google" className="w-6 h-6 bg-white p-1 rounded-full" />
-          Sign in with Google
-        </button>
-        
-        <p className="mt-8 text-[10px] text-slate-400 uppercase tracking-widest font-bold">
-          Authorized Personnel Only
-        </p>
-      </div>
-    </main>
-  </div>
-);
+      </header>
+      <main className="flex-grow flex items-center justify-center p-6 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500 rounded-full blur-[120px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500 rounded-full blur-[120px]" />
+        </div>
+
+        <div className="w-full max-w-md bg-white rounded-[2.5rem] overflow-hidden shadow-2xl relative z-10 p-10">
+          <div className="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center mx-auto mb-6 text-[#0D1C32]">
+            <Icons.Shield size={40} />
+          </div>
+          <h1 className="text-3xl font-bold font-headline text-[#0D1C32] mb-2 text-center">EthioVault</h1>
+          <p className="text-slate-500 text-sm mb-8 text-center">
+            {mode === 'signin' ? 'Sign in to your account.' : 'Create a new account.'}
+          </p>
+
+          <form onSubmit={submit} className="space-y-4">
+            {mode === 'signup' && (
+              <input
+                type="text"
+                placeholder="Display name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="w-full px-4 py-3 rounded-2xl bg-slate-100 text-[#0D1C32] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0D1C32]"
+              />
+            )}
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+              className="w-full px-4 py-3 rounded-2xl bg-slate-100 text-[#0D1C32] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0D1C32]"
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+              className="w-full px-4 py-3 rounded-2xl bg-slate-100 text-[#0D1C32] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0D1C32]"
+            />
+
+            {error && (
+              <p className="text-sm text-red-600 text-center">{error}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full bg-[#0D1C32] text-white py-4 rounded-2xl font-headline font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-60 disabled:hover:scale-100"
+            >
+              {submitting ? 'Please wait…' : mode === 'signin' ? 'Sign In' : 'Create Account'}
+            </button>
+          </form>
+
+          <button
+            type="button"
+            onClick={() => { setError(null); setMode(mode === 'signin' ? 'signup' : 'signin'); }}
+            className="mt-6 w-full text-sm text-slate-500 hover:text-[#0D1C32] transition"
+          >
+            {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+          </button>
+
+          <p className="mt-6 text-[10px] text-slate-400 uppercase tracking-widest font-bold text-center">
+            Authorized Personnel Only
+          </p>
+        </div>
+      </main>
+    </div>
+  );
+};
 
 const ProfileScreen = ({ onBack, user, userData, onUpdate, canInstall, onInstall }: { onBack: () => void, user: User | null, userData: any, onUpdate: (data: any) => void, canInstall: boolean, onInstall: () => void }) => {
   const [displayName, setDisplayName] = useState(userData?.displayName || '');
@@ -768,7 +837,7 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
     return matchesFilter && matchesSearch && matchesStatus && matchesWarehouse;
   });
 
-  const totalValue = filteredInventory.reduce((sum, item) => sum + (item.valuation || 0), 0);
+  const totalValue = filteredInventory.reduce((sum, item) => item.status === 'IN_STOCK' ? sum + (item.valuation || 0) : sum, 0);
   
   const isManagerForCurrentWarehouse = userData?.role === 'warehouse_manager' && (selectedWarehouseId === userData?.warehouseId);
   const isAdmin = userData?.role === 'admin';
@@ -1527,7 +1596,7 @@ const ReconcileScreen = ({ onBack, transactions, userData, onOpenSidebar }: { on
         soldItems: soldItems.map(tx => ({ item: tx.item, imei: tx.imei, amount: tx.amount }))
       });
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, 'reconciliations');
+      handleDbError(e, OperationType.WRITE, 'reconciliations');
       setIsApproving(false);
       return;
     }
@@ -1535,12 +1604,12 @@ const ReconcileScreen = ({ onBack, transactions, userData, onOpenSidebar }: { on
     try {
       await addDoc(collection(db, 'notifications'), {
         title: 'Reconciliation Submitted',
-        msg: `${userData.displayName} finished the daily report for ${userData.branch}.`,
+        body: `${userData.displayName} finished the daily report for ${userData.branch}.`,
         timestamp: new Date().toISOString(),
         type: 'info'
       });
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, 'notifications');
+      handleDbError(e, OperationType.WRITE, 'notifications');
     }
 
     setIsApproving(false);
@@ -1777,16 +1846,24 @@ const InviteScreen = ({ onBack, onInvite, invites, branches, onOpenSidebar }: { 
 
 const SaleScreen = ({ onBack, onSale, inventory, cart, setCart, bankAccounts, onOpenSidebar }: { onBack: () => void, onSale: (data: any) => void, inventory: any[], cart: {item: InventoryItem, salePrice: number}[], setCart: React.Dispatch<React.SetStateAction<{item: InventoryItem, salePrice: number}[]>>, bankAccounts: BankAccount[], onOpenSidebar?: () => void }) => {
   const [selectedImei, setSelectedImei] = useState('');
+  const [overridePrice, setOverridePrice] = useState('');
   const [selectedBankId, setSelectedBankId] = useState(bankAccounts[0]?.id || '');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+
+  const selectedItem = selectedImei ? inventory.find(i => i.imei === selectedImei) : null;
+
+  const resolveSalePrice = (item: InventoryItem) => {
+    const parsed = Number(overridePrice.replace(/,/g, ''));
+    return overridePrice && !isNaN(parsed) && parsed > 0 ? parsed : item.valuation;
+  };
 
   const addToCart = () => {
-    if (!selectedImei) return;
-    const item = inventory.find(i => i.imei === selectedImei);
-    if (item && !cart.find(c => c.item.id === item.id)) {
-      setCart([...cart, { item, salePrice: item.valuation }]);
-      setSelectedImei('');
-    }
+    if (!selectedItem) return;
+    if (cart.find(c => c.item.id === selectedItem.id)) return;
+    setCart([...cart, { item: selectedItem, salePrice: resolveSalePrice(selectedItem) }]);
+    setSelectedImei('');
+    setOverridePrice('');
   };
 
   const removeFromCart = (id: string) => {
@@ -1814,16 +1891,15 @@ const SaleScreen = ({ onBack, onSale, inventory, cart, setCart, bankAccounts, on
   };
 
   const handleOneByOneSale = async () => {
-    if (!selectedImei || !selectedBankId) return;
-    const item = inventory.find(i => i.imei === selectedImei);
-    if (!item) return;
+    if (!selectedItem || !selectedBankId) return;
     setIsProcessing(true);
     await onSale({ 
-      amount: item.valuation, 
-      item: item.name, 
-      imei: item.imei,
+      amount: resolveSalePrice(selectedItem), 
+      item: selectedItem.name, 
+      imei: selectedItem.imei,
       bankAccountId: selectedBankId
     });
+    setOverridePrice('');
     setIsProcessing(false);
     onBack();
   };
@@ -1832,6 +1908,7 @@ const SaleScreen = ({ onBack, onSale, inventory, cart, setCart, bankAccounts, on
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-32">
+      {isScanning && <QRScanner onScan={(text) => { setSelectedImei(text); setIsScanning(false); }} onClose={() => setIsScanning(false)} />}
       <main className="pt-24 px-6 max-w-5xl mx-auto">
         <header className="flex items-center gap-6 mb-12">
           {onOpenSidebar && (
@@ -1868,17 +1945,46 @@ const SaleScreen = ({ onBack, onSale, inventory, cart, setCart, bankAccounts, on
               <div className="space-y-4">
                  <div>
                     <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest block mb-2">Select Individual Device</label>
-                    <select 
-                      value={selectedImei} 
-                      onChange={(e) => setSelectedImei(e.target.value)} 
-                      className="w-full bg-slate-50 border-none rounded-xl py-4 px-4 font-headline font-bold text-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                    >
-                      <option value="">Choose item by IMEI...</option>
-                      {inventory.filter(i => i.status === 'IN_STOCK' && !cart.find(c => c.item.id === i.id)).map(item => (
-                        <option key={item.id} value={item.imei}>{item.name} ({item.imei})</option>
-                      ))}
-                    </select>
+                    <div className="flex gap-2">
+                      <select 
+                        value={selectedImei} 
+                        onChange={(e) => setSelectedImei(e.target.value)} 
+                        className="flex-1 bg-slate-50 border-none rounded-xl py-4 px-4 font-headline font-bold text-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                      >
+                        <option value="">Choose item by IMEI...</option>
+                        {inventory.filter(i => i.status === 'IN_STOCK' && !cart.find(c => c.item.id === i.id)).map(item => (
+                          <option key={item.id} value={item.imei}>{item.name} ({item.imei})</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setIsScanning(true)}
+                        className="shrink-0 w-14 bg-[#0D1C32] text-white rounded-xl flex items-center justify-center hover:opacity-90 transition-all"
+                        title="Scan IMEI"
+                      >
+                        <Icons.QRCode size={20} />
+                      </button>
+                    </div>
                  </div>
+
+                 {selectedItem && (
+                   <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest block mb-2">
+                        Sale Price <span className="text-slate-300 normal-case font-medium">(default: {selectedItem.valuation.toLocaleString()} ETB)</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">ETB</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={overridePrice}
+                          onChange={(e) => setOverridePrice(e.target.value.replace(/[^0-9]/g, ''))}
+                          placeholder={String(selectedItem.valuation)}
+                          className="w-full bg-slate-50 border-none rounded-xl py-4 pl-14 pr-4 font-headline font-bold text-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                        />
+                      </div>
+                   </div>
+                 )}
                  
                  <div className="flex gap-2">
                     <button 
@@ -1986,33 +2092,6 @@ const PurchaseScreen = ({ onBack, onAdd, warehouses, onOpenSidebar }: { onBack: 
   const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id || '');
   const [isScanning, setIsScanning] = useState(false);
 
-  const [isLookingUp, setIsLookingUp] = useState(false);
-
-  useEffect(() => {
-    const lookupModel = async () => {
-      if (imei.length < 8) return;
-      
-      setIsLookingUp(true);
-      try {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: `Identify the mobile phone model for this IMEI (or TAC prefix): ${imei}. Return ONLY the model name, e.g., "iPhone 13" or "Samsung Galaxy S21". If unknown, return "Unknown Device".`,
-        });
-        const result = response.text?.trim();
-        if (result && result !== 'Unknown Device') {
-          setModel(result);
-        }
-      } catch (error) {
-        console.error("IMEI lookup failed:", error);
-      } finally {
-        setIsLookingUp(false);
-      }
-    };
-
-    const timeoutId = setTimeout(lookupModel, 500);
-    return () => clearTimeout(timeoutId);
-  }, [imei]);
-
   const handleAdd = () => {
     const price = Number(purchasePrice.replace(/,/g, ''));
     if (!model || !imei || isNaN(price) || price <= 0) return;
@@ -2088,9 +2167,8 @@ const PurchaseScreen = ({ onBack, onAdd, warehouses, onOpenSidebar }: { onBack: 
                      value={model} 
                      onChange={(e) => setModel(e.target.value)}
                      className="w-full bg-slate-50 border-none rounded-xl py-4 px-4 font-headline font-bold text-primary" 
-                     placeholder={isLookingUp ? "Identifying..." : "Identify Device Model..."} 
+                     placeholder="Device Model..." 
                    />
-                   {isLookingUp && <div className="absolute right-4 top-1/2 -translate-y-1/2 border-2 border-primary/20 border-t-primary w-4 h-4 rounded-full animate-spin" />}
                 </div>
               </div>
 
@@ -2507,7 +2585,7 @@ const NotificationsScreen = ({ notifications, onBack, onOpenSidebar }: { notific
               <h4 className="font-headline font-bold text-on-surface">{n.title}</h4>
               <span className="text-[10px] text-slate-400 font-bold uppercase">{new Date(n.timestamp).toLocaleString()}</span>
             </div>
-            <p className="text-sm text-slate-500 leading-relaxed">{n.msg}</p>
+            <p className="text-sm text-slate-500 leading-relaxed">{n.body}</p>
           </div>
         ))}
         {notifications.length === 0 && (
@@ -2521,8 +2599,25 @@ const NotificationsScreen = ({ notifications, onBack, onOpenSidebar }: { notific
   </div>
 );
 
-const OnboardingScreen = ({ user, invites, onAccept, onLogout }: { user: User, invites: any[], onAccept: (invite: any) => void, onLogout: () => void }) => {
+const OnboardingScreen = ({ user, invites, onAccept, onCreateOrg, onLogout }: { user: User, invites: any[], onAccept: (invite: any) => void, onCreateOrg: (name: string) => Promise<void>, onLogout: () => void }) => {
   const userInvites = invites.filter(i => i.email === user.email && i.status === 'PENDING');
+  const [orgName, setOrgName] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const submitCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orgName.trim()) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      await onCreateOrg(orgName.trim());
+    } catch (err: any) {
+      setCreateError(err?.message || 'Could not create store');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0D1C32] flex flex-col items-center justify-center p-6 text-center">
@@ -2553,9 +2648,28 @@ const OnboardingScreen = ({ user, invites, onAccept, onLogout }: { user: User, i
           <div className="p-8 bg-amber-50 rounded-2xl border border-amber-100 mb-8">
             <Icons.Warning size={32} className="text-amber-500 mx-auto mb-3" />
             <p className="text-sm font-bold text-amber-900">No Invitations Found</p>
-            <p className="text-xs text-amber-700 mt-2">Please ask your store administrator to invite you using your email: <span className="font-bold">{user.email}</span></p>
+            <p className="text-xs text-amber-700 mt-2">Either ask an existing store admin to invite <span className="font-bold">{user.email}</span>, or create your own store below.</p>
           </div>
         )}
+
+        <form onSubmit={submitCreate} className="space-y-3 text-left mb-6">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Create Your Store</p>
+          <input
+            type="text"
+            value={orgName}
+            onChange={(e) => setOrgName(e.target.value)}
+            placeholder="Store name"
+            className="w-full px-4 py-3 rounded-2xl bg-slate-100 text-[#0D1C32] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0D1C32]"
+          />
+          {createError && <p className="text-sm text-red-600 text-center">{createError}</p>}
+          <button
+            type="submit"
+            disabled={creating || !orgName.trim()}
+            className="w-full py-4 bg-[#0D1C32] text-white rounded-2xl font-headline font-bold text-sm shadow-xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-60 disabled:hover:scale-100"
+          >
+            {creating ? 'Creating\u2026' : 'Create Store & Continue'}
+          </button>
+        </form>
 
         <button 
           onClick={onLogout}
@@ -2632,8 +2746,27 @@ function App() {
           const data = userSnap.data();
           setUserData(data);
           if (data.favorites) setFavorites(data.favorites);
-          setScreen('DASHBOARD');
+          if (data.organizationId) {
+            setScreen('DASHBOARD');
+          } else {
+            setScreen('ONBOARDING');
+          }
         } else {
+          // Auth user exists but no public.users row yet (trigger missed
+          // this account). Bootstrap one now so subsequent writes work.
+          const bootstrap = {
+            email: u.email,
+            displayName: u.displayName || null,
+            photoURL: u.photoURL || null,
+            role: u.email === 'aman.teferi.80@gmail.com' ? 'admin' : 'clerk',
+            favorites: [],
+          };
+          try {
+            await setDoc(doc(db, 'users', u.uid), bootstrap);
+            setUserData({ uid: u.uid, ...bootstrap });
+          } catch (e) {
+            console.error('Failed to bootstrap user row', e);
+          }
           setScreen('ONBOARDING');
         }
       } else {
@@ -2644,80 +2777,137 @@ function App() {
     return unsubscribe;
   }, []);
 
+  // ─── Data layer ────────────────────────────────────────────────────
+  // One fetcher per collection, exposed via a stable ref so the global
+  // 'vault:data-changed' listener can invalidate just the affected
+  // collection instead of refetching all 9 every time anything changes.
+  const fetchersRef = useRef<Record<string, () => Promise<void>>>({});
+
   useEffect(() => {
     if (!user) return;
 
     const isClerk = userData?.role === 'clerk';
-    const isAdminUser = userData?.role === 'admin' || user?.email === "aman.teferi.80@gmail.com";
+    const isAdminUser = userData?.role === 'admin' || user?.email === 'aman.teferi.80@gmail.com';
 
-    // Clerks should be able to see all items in the vault, not just branch-specific
-    const qInv = query(collection(db, 'inventory'));
-    const unsubInv = onSnapshot(qInv, (snapshot) => {
-      const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as InventoryItem));
-      setInventory(items);
-    }, (e) => handleFirestoreError(e, OperationType.LIST, 'inventory'));
-
-    let qTx = query(collection(db, 'transactions'), orderBy('timestamp', 'desc'));
-    if (isClerk) {
-      qTx = query(collection(db, 'transactions'), where('clerkId', '==', user.uid), orderBy('timestamp', 'desc'));
-    }
-    const unsubTx = onSnapshot(qTx, (snapshot) => {
-      const txs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Transaction));
-      setTransactions(txs);
-    }, (e) => handleFirestoreError(e, OperationType.LIST, 'transactions'));
-
-    const qNotif = query(collection(db, 'notifications'), orderBy('timestamp', 'desc'));
-    const unsubNotif = onSnapshot(qNotif, (snapshot) => {
-      const notifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setNotifications(notifs);
-    }, (e) => handleFirestoreError(e, OperationType.LIST, 'notifications'));
-
-    const qBranches = query(collection(db, 'branches'));
-    const unsubBranches = onSnapshot(qBranches, (snapshot) => {
-      const bList = snapshot.docs.map(doc => doc.data().name);
-      setBranches(prev => {
-        const combined = [...prev, ...bList];
-        return Array.from(new Set(combined.map(s => s.trim()))).filter(Boolean);
-      });
-    }, (e) => handleFirestoreError(e, OperationType.LIST, 'branches'));
-
-    let qInvites = query(collection(db, 'invites'), orderBy('timestamp', 'desc'));
-    if (!isAdminUser) {
-      qInvites = query(collection(db, 'invites'), where('email', '==', user.email), orderBy('timestamp', 'desc'));
-    }
-    const unsubInvites = onSnapshot(qInvites, (snapshot) => {
-      const iList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setInvites(iList);
-    }, (e) => handleFirestoreError(e, OperationType.LIST, 'invites'));
-
-    const unsubBankAcc = onSnapshot(collection(db, 'bankAccounts'), (snapshot) => {
-      setBankAccounts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BankAccount)));
-    }, (e) => handleFirestoreError(e, OperationType.LIST, 'bankAccounts'));
-
-    const unsubBankTx = onSnapshot(query(collection(db, 'bankTransactions'), orderBy('date', 'desc')), (snapshot) => {
-      setBankTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BankTransaction)));
-    }, (e) => handleFirestoreError(e, OperationType.LIST, 'bankTransactions'));
-
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (e) => handleFirestoreError(e, OperationType.LIST, 'users'));
-
-    const unsubWarehouses = onSnapshot(collection(db, 'warehouses'), (snapshot) => {
-      setWarehouses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Warehouse)));
-    }, (e) => handleFirestoreError(e, OperationType.LIST, 'warehouses'));
-
-    return () => {
-      unsubInv();
-      unsubTx();
-      unsubNotif();
-      unsubBranches();
-      unsubInvites();
-      unsubBankAcc();
-      unsubBankTx();
-      unsubUsers();
-      unsubWarehouses();
+    const fetchInventory = async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'inventory')));
+        setInventory(snap.docs.map((d: any) => ({ ...d.data(), id: d.id } as InventoryItem)));
+      } catch (e) { handleDbError(e, OperationType.LIST, 'inventory'); }
     };
+
+    const fetchTransactions = async () => {
+      try {
+        const q = isClerk
+          ? query(collection(db, 'transactions'), where('clerkId', '==', user.uid), orderBy('timestamp', 'desc'))
+          : query(collection(db, 'transactions'), orderBy('timestamp', 'desc'));
+        const snap = await getDocs(q);
+        setTransactions(snap.docs.map((d: any) => ({ ...d.data(), id: d.id } as Transaction)));
+      } catch (e) { handleDbError(e, OperationType.LIST, 'transactions'); }
+    };
+
+    const fetchNotifications = async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'notifications'), orderBy('timestamp', 'desc')));
+        setNotifications(snap.docs.map((d: any) => ({ id: d.id, ...d.data() })));
+      } catch (e) { handleDbError(e, OperationType.LIST, 'notifications'); }
+    };
+
+    const fetchBranches = async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'branches')));
+        const bList = snap.docs.map((d: any) => d.data().name);
+        setBranches(prev => Array.from(new Set([...prev, ...bList].map((s: string) => s.trim()))).filter(Boolean));
+      } catch (e) { handleDbError(e, OperationType.LIST, 'branches'); }
+    };
+
+    const fetchInvites = async () => {
+      try {
+        const q = isAdminUser
+          ? query(collection(db, 'invites'), orderBy('timestamp', 'desc'))
+          : query(collection(db, 'invites'), where('email', '==', user.email), orderBy('timestamp', 'desc'));
+        const snap = await getDocs(q);
+        setInvites(snap.docs.map((d: any) => ({ id: d.id, ...d.data() })));
+      } catch (e) { handleDbError(e, OperationType.LIST, 'invites'); }
+    };
+
+    const fetchBankAccounts = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'bankAccounts'));
+        setBankAccounts(snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as BankAccount)));
+      } catch (e) { handleDbError(e, OperationType.LIST, 'bankAccounts'); }
+    };
+
+    const fetchBankTransactions = async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'bankTransactions'), orderBy('date', 'desc')));
+        setBankTransactions(snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as BankTransaction)));
+      } catch (e) { handleDbError(e, OperationType.LIST, 'bankTransactions'); }
+    };
+
+    const fetchUsers = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'users'));
+        setUsers(snap.docs.map((d: any) => ({ id: d.id, ...d.data() })));
+      } catch (e) { handleDbError(e, OperationType.LIST, 'users'); }
+    };
+
+    const fetchWarehouses = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'warehouses'));
+        setWarehouses(snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Warehouse)));
+      } catch (e) { handleDbError(e, OperationType.LIST, 'warehouses'); }
+    };
+
+    // Map shim-event table names → fetchers. Some writes touch multiple
+    // logical views, so a single mutation may invalidate more than one.
+    fetchersRef.current = {
+      inventory: fetchInventory,
+      transactions: fetchTransactions,
+      notifications: fetchNotifications,
+      branches: fetchBranches,
+      invites: fetchInvites,
+      bank_accounts: fetchBankAccounts,
+      bank_transactions: fetchBankTransactions,
+      users: fetchUsers,
+      warehouses: fetchWarehouses,
+    };
+
+    // Initial parallel load.
+    Promise.all([
+      fetchInventory(),
+      fetchTransactions(),
+      fetchNotifications(),
+      fetchBranches(),
+      fetchInvites(),
+      fetchBankAccounts(),
+      fetchBankTransactions(),
+      fetchUsers(),
+      fetchWarehouses(),
+    ]);
   }, [user, userData?.role, userData?.branch]);
+
+  // Single global listener: only refetch the collection that actually changed.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onChange = (e: Event) => {
+      const table = (e as CustomEvent).detail?.table as string | undefined;
+      const fetchers = fetchersRef.current;
+      if (!table) {
+        Object.values(fetchers).forEach(fn => fn());
+        return;
+      }
+      fetchers[table]?.();
+      // Cross-collection invariants: a bank movement may have just been
+      // paired with a fresh transactions row, and vice versa.
+      if (table === 'transactions') fetchers.bank_transactions?.();
+      if (table === 'bank_transactions') fetchers.transactions?.();
+      // Inventory writes often coincide with a PURCHASE audit row.
+      if (table === 'inventory') fetchers.transactions?.();
+    };
+    window.addEventListener('vault:data-changed', onChange);
+    return () => window.removeEventListener('vault:data-changed', onChange);
+  }, []);
 
   useEffect(() => {
     (window as any).setScreen = setScreen;
@@ -2733,7 +2923,7 @@ function App() {
     try {
       await setDoc(doc(db, 'users', user.uid), { favorites: newFavorites }, { merge: true });
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, 'users');
+      handleDbError(e, OperationType.WRITE, 'users');
     }
   };
 
@@ -2742,14 +2932,14 @@ function App() {
       await addDoc(collection(db, 'invites'), {
         email,
         branch,
+        role: 'clerk',
         invitedBy: user?.uid,
-        invitedByEmail: user?.email,
         status: 'PENDING',
         timestamp: serverTimestamp()
       });
       alert(`Invite sent to ${email} for branch ${branch}`);
     } catch (e) {
-      handleFirestoreError(e, OperationType.CREATE, 'invites');
+      handleDbError(e, OperationType.CREATE, 'invites');
     }
   };
 
@@ -2766,17 +2956,22 @@ function App() {
   
   const metrics = { cashOnHand, inventoryValue, receivable, payable };
 
-  const handleLogin = async () => {
-    try {
-      await loginWithGoogle();
-    } catch (error) {
-      console.error("Login failed", error);
+  const handleLogin = async (
+    email: string,
+    password: string,
+    mode: 'signin' | 'signup',
+    displayName?: string,
+  ) => {
+    if (mode === 'signup') {
+      await signUpWithEmail(email, password, displayName);
+    } else {
+      await loginWithEmail(email, password);
     }
   };
 
   const handleLogout = async () => {
     try {
-      await firebaseLogout();
+      await logout();
     } catch (error) {
       console.error("Logout failed", error);
     }
@@ -2791,6 +2986,7 @@ function App() {
         displayName: user.displayName || 'New User',
         photoURL: user.photoURL || 'https://picsum.photos/seed/clerk/100/100',
         role: 'clerk',
+        organizationId: invite.organizationId,
         branch: invite.branch || 'Main Branch',
         favorites: []
       };
@@ -2799,8 +2995,30 @@ function App() {
       setUserData(newUser);
       setScreen('DASHBOARD');
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, 'users/invites');
+      handleDbError(e, OperationType.WRITE, 'users/invites');
     }
+  };
+
+  const handleCreateOrganization = async (name: string) => {
+    if (!user) return;
+    const orgRef = await addDoc(collection(db, 'organizations'), { name });
+    await setDoc(
+      doc(db, 'users', user.uid),
+      {
+        // Include identity fields so that if the public.users row doesn't
+        // exist yet, the merge-falls-back-to-upsert path satisfies the
+        // NOT NULL email constraint.
+        email: user.email,
+        displayName: user.displayName || null,
+        photoURL: user.photoURL || null,
+        organizationId: orgRef.id,
+        role: 'admin',
+      },
+      { merge: true }
+    );
+    clearOrgCache();
+    setUserData((prev: any) => ({ ...(prev || {}), organizationId: orgRef.id, role: 'admin' }));
+    setScreen('DASHBOARD');
   };
 
   const handleAddInventory = async (item: any) => {
@@ -2814,6 +3032,26 @@ function App() {
     const isApproved = !hasManager;
     const status = hasManager ? 'PENDING_APPROVAL' : 'IN_STOCK';
 
+    // 1) Always write the PURCHASE audit trail FIRST so it lands in
+    //    "All Transactions" even if any downstream step fails.
+    let txRef: any = null;
+    try {
+      txRef = await addDoc(collection(db, 'transactions'), {
+        type: 'PURCHASE',
+        item: item.name,
+        amount: -purchasePrice,
+        timestamp: new Date().toISOString(),
+        clerk: user?.displayName || 'Unknown',
+        clerkId: user?.uid,
+        status: isApproved ? 'SETTLED' : 'PENDING',
+        imei: item.imei,
+        branch: userData?.branch || 'Main Branch',
+      });
+    } catch (e) {
+      handleDbError(e, OperationType.WRITE, 'transactions');
+    }
+
+    // 2) Create the inventory item.
     try {
       await addDoc(collection(db, 'inventory'), {
         ...item,
@@ -2824,33 +3062,42 @@ function App() {
         warehouseId: item.warehouseId || '',
         lastUpdated: new Date().toISOString()
       });
-      
+    } catch (e) {
+      handleDbError(e, OperationType.WRITE, 'inventory');
+    }
+
+    // 3) Record the bank movement (requires the audit-trail tx id).
+    if (txRef?.id) {
       const bankAcc = bankAccounts.find(a => a.type === 'STORE');
+      if (bankAcc?.id) {
+        try {
+          await addDoc(collection(db, 'bankTransactions'), {
+            bankAccountId: bankAcc.id,
+            transactionId: txRef.id,
+            type: 'WITHDRAWAL',
+            amount: -purchasePrice,
+            activity: `Purchase: ${item.name}`,
+            date: new Date().toISOString(),
+          });
+        } catch (e) {
+          handleDbError(e, OperationType.WRITE, 'bankTransactions');
+        }
+      }
+    }
 
-      await addDoc(collection(db, 'transactions'), {
-        type: 'PURCHASE',
-        item: item.name,
-        amount: -purchasePrice,
-        timestamp: new Date().toISOString(),
-        clerk: user?.displayName || 'Unknown',
-        clerkId: user?.uid,
-        status: isApproved ? 'SETTLED' : 'PENDING',
-        imei: item.imei,
-        branch: userData?.branch || 'Main Branch',
-        bankAccountId: bankAcc?.id || ''
-      });
-
-      if (hasManager) {
+    // 4) Notify a manager if approval is required.
+    if (hasManager) {
+      try {
         await addDoc(collection(db, 'notifications'), {
           title: 'Approval Required',
-          msg: `New item ${item.name} added to warehouse. Needs approval from manager.`,
+          body: `New item ${item.name} added to warehouse. Needs approval from manager.`,
           timestamp: new Date().toISOString(),
           type: 'warning',
           warehouseId: item.warehouseId
         });
+      } catch (e) {
+        handleDbError(e, OperationType.WRITE, 'notifications');
       }
-    } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, 'inventory/transactions');
     }
   };
 
@@ -2861,7 +3108,7 @@ function App() {
       return;
     }
     try {
-      await addDoc(collection(db, 'transactions'), {
+      const txRef = await addDoc(collection(db, 'transactions'), {
         type: 'EXPENSE',
         item: data.category,
         amount: -amount,
@@ -2871,8 +3118,19 @@ function App() {
         status: 'SETTLED',
         branch: userData?.branch || 'Main Branch'
       });
+
+      if (data.bankAccountId) {
+        await addDoc(collection(db, 'bankTransactions'), {
+          bankAccountId: data.bankAccountId,
+          transactionId: txRef.id,
+          type: 'WITHDRAWAL',
+          amount: -amount,
+          activity: `Expense: ${data.category}`,
+          date: new Date().toISOString(),
+        });
+      }
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, 'transactions');
+      handleDbError(e, OperationType.WRITE, 'transactions');
     }
   };
 
@@ -2882,9 +3140,10 @@ function App() {
       console.error("Invalid sale amount:", data.amount);
       return;
     }
+
+    let txRef: any;
     try {
-      // data: { amount, item, imei, bankAccountId }
-      await addDoc(collection(db, 'transactions'), {
+      txRef = await addDoc(collection(db, 'transactions'), {
         type: 'SALE',
         item: data.item,
         amount: amount,
@@ -2894,28 +3153,50 @@ function App() {
         status: 'SETTLED',
         imei: data.imei,
         branch: userData?.branch || 'Main Branch',
-        bankAccountId: data.bankAccountId
       });
-      
-      // Update inventory status if imei is provided
-      if (data.imei) {
-        const item = inventory.find(i => i.imei === data.imei);
-        if (item) {
+    } catch (e) {
+      handleDbError(e, OperationType.WRITE, 'transactions');
+      return;
+    }
+
+    if (data.bankAccountId) {
+      try {
+        await addDoc(collection(db, 'bankTransactions'), {
+          bankAccountId: data.bankAccountId,
+          transactionId: txRef.id,
+          type: 'DEPOSIT',
+          amount: amount,
+          activity: `Sale: ${data.item}`,
+          date: new Date().toISOString(),
+        });
+      } catch (e) {
+        handleDbError(e, OperationType.WRITE, 'bankTransactions');
+      }
+    }
+
+    if (data.imei) {
+      const item = inventory.find(i => i.imei === data.imei);
+      if (item) {
+        try {
           await setDoc(doc(db, 'inventory', item.id), {
             status: 'SOLD',
             lastUpdated: new Date().toISOString()
           }, { merge: true });
+        } catch (e) {
+          handleDbError(e, OperationType.WRITE, 'inventory');
         }
       }
+    }
 
+    try {
       await addDoc(collection(db, 'notifications'), {
         title: 'New Sale',
-        msg: `${userData?.displayName || 'Unknown'} sold ${data.item} for ${amount.toLocaleString()} ETB.`,
+        body: `${userData?.displayName || 'Unknown'} sold ${data.item} for ${amount.toLocaleString()} ETB.`,
         timestamp: new Date().toISOString(),
         type: 'success'
       });
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, 'transactions/inventory');
+      handleDbError(e, OperationType.WRITE, 'notifications');
     }
   };
 
@@ -2949,12 +3230,12 @@ function App() {
 
       await addDoc(collection(db, 'notifications'), {
         title: 'Asset Lent',
-        msg: `${data.itemName} was lent to ${data.location}.`,
+        body: `${data.itemName} was lent to ${data.location}.`,
         timestamp: new Date().toISOString(),
         type: 'warning'
       });
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, 'inventory/transactions');
+      handleDbError(e, OperationType.WRITE, 'inventory/transactions');
     }
   };
 
@@ -2982,7 +3263,7 @@ function App() {
       });
       setSelectedItemForHistory(null);
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, 'inventory/transactions');
+      handleDbError(e, OperationType.WRITE, 'inventory/transactions');
     }
   };
 
@@ -3014,7 +3295,7 @@ function App() {
       });
       setSelectedItemForHistory(null);
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, 'inventory/transactions');
+      handleDbError(e, OperationType.WRITE, 'inventory/transactions');
     }
   };
 
@@ -3049,12 +3330,12 @@ function App() {
 
       await addDoc(collection(db, 'notifications'), {
         title: 'Network Transfer',
-        msg: `${data.direction === 'SEND' ? 'Sent' : 'Received'} ${data.item} ${data.direction === 'SEND' ? 'to' : 'from'} ${data.direction === 'SEND' ? data.location : data.source}.`,
+        body: `${data.direction === 'SEND' ? 'Sent' : 'Received'} ${data.item} ${data.direction === 'SEND' ? 'to' : 'from'} ${data.direction === 'SEND' ? data.location : data.source}.`,
         timestamp: new Date().toISOString(),
         type: 'info'
       });
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, 'transactions');
+      handleDbError(e, OperationType.WRITE, 'transactions');
     }
   };
 
@@ -3066,7 +3347,7 @@ function App() {
         createdAt: new Date().toISOString()
       });
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, 'branches');
+      handleDbError(e, OperationType.WRITE, 'branches');
     }
   };
 
@@ -3079,7 +3360,7 @@ function App() {
       }, { merge: true });
       setUserData({ ...userData, ...data });
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, 'users');
+      handleDbError(e, OperationType.WRITE, 'users');
     }
   };
 
@@ -3090,7 +3371,7 @@ function App() {
         createdAt: new Date().toISOString()
       });
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, 'warehouses');
+      handleDbError(e, OperationType.WRITE, 'warehouses');
     }
   };
 
@@ -3098,7 +3379,7 @@ function App() {
     try {
       await updateDoc(doc(db, 'warehouses', id), data);
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, `warehouses/${id}`);
+      handleDbError(e, OperationType.WRITE, `warehouses/${id}`);
     }
   };
 
@@ -3106,7 +3387,7 @@ function App() {
     try {
       await deleteDoc(doc(db, 'warehouses', id));
     } catch (e) {
-      handleFirestoreError(e, OperationType.DELETE, `warehouses/${id}`);
+      handleDbError(e, OperationType.DELETE, `warehouses/${id}`);
     }
   };
 
@@ -3114,20 +3395,25 @@ function App() {
     try {
       await updateDoc(doc(db, 'inventory', itemId), { warehouseId });
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, `inventory/${itemId}`);
+      handleDbError(e, OperationType.WRITE, `inventory/${itemId}`);
     }
   };
   const handleAddBankAccount = async (acc: any) => {
+    if (!userData?.organizationId) {
+      handleDbError(new Error('No organization selected'), OperationType.WRITE, 'bankAccounts');
+      return;
+    }
     try {
       await addDoc(collection(db, 'bankAccounts'), {
         ...acc,
+        organizationId: userData.organizationId,
         currency: 'ETB',
         balance: Number(acc.balance),
         type: acc.type || 'STORE',
         ownerId: acc.ownerId || 'STORE'
       });
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, 'bankAccounts');
+      handleDbError(e, OperationType.WRITE, 'bankAccounts');
     }
   };
 
@@ -3140,7 +3426,7 @@ function App() {
       await updateDoc(doc(db, 'users', uid), updates);
       setUsers(prev => prev.map(u => u.uid === uid ? { ...u, ...updates } : u));
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, `users/${uid}`);
+      handleDbError(e, OperationType.WRITE, `users/${uid}`);
     }
   };
 
@@ -3150,7 +3436,7 @@ function App() {
       await deleteDoc(doc(db, 'transactions', id));
       setTransactions(prev => prev.filter(tx => tx.id !== id));
     } catch (e) {
-      handleFirestoreError(e, OperationType.DELETE, `transactions/${id}`);
+      handleDbError(e, OperationType.DELETE, `transactions/${id}`);
     }
   };
 
@@ -3175,7 +3461,13 @@ function App() {
             </motion.div>
           ) : screen === 'ONBOARDING' ? (
             <motion.div key="onboarding" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <OnboardingScreen user={user!} invites={invites} onAccept={handleAcceptInvite} onLogout={handleLogout} />
+              <OnboardingScreen
+                user={user!}
+                invites={invites}
+                onAccept={handleAcceptInvite}
+                onCreateOrg={handleCreateOrganization}
+                onLogout={handleLogout}
+              />
             </motion.div>
           ) : (
             <motion.div key="app" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex">

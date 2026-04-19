@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo } from 'react';
 import { Icons, BankAccount, BankTransaction } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -102,78 +104,58 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
 
       {/* Cards Scroll */}
       <div className="flex gap-4 lg:gap-6 overflow-x-auto pb-8 no-scrollbar -mx-4 px-4 h-[300px] items-center">
-        {/* Empty Placeholder Card like in screenshot */}
-        <div className="min-w-[280px] sm:min-w-[420px] h-[260px] bg-slate-100/40 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex items-center justify-center pointer-events-none grayscale shrink-0">
-        </div>
-        
         {filteredAccounts.map((acc) => {
           const isHidden = hiddenBalances.has(acc.id);
+          const last4 = acc.accountNumber.slice(-4);
           return (
             <div 
               key={acc.id}
               style={{ backgroundColor: acc.color }}
               className="min-w-[280px] sm:min-w-[420px] h-[260px] rounded-[2.5rem] p-8 text-white relative shadow-2xl shadow-black/20 flex flex-col justify-between group overflow-hidden shrink-0"
             >
-              {/* Card Header */}
+              {/* Header */}
               <div className="flex justify-between items-start relative z-10">
-                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white/20 rounded-xl backdrop-blur-md flex items-center justify-center">
-                      <Icons.Vault size={28} className="text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-headline font-bold leading-tight">{acc.bankName}</h3>
-                      <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">Premium Account</p>
-                    </div>
-                 </div>
-                 <div className="flex items-center gap-2 opacity-60">
-                    <div className="flex flex-col gap-0.5">
-                       <div className="w-4 h-[1px] bg-white opacity-40"></div>
-                       <div className="w-4 h-[1px] bg-white opacity-60"></div>
-                       <div className="w-4 h-[1px] bg-white"></div>
-                    </div>
-                    <Icons.Network size={20} />
-                 </div>
+                <div>
+                  <p className="text-[10px] font-bold opacity-60 uppercase tracking-[0.25em] mb-2">
+                    {acc.type === 'EMPLOYEE' ? 'Employee Account' : 'Store Account'}
+                  </p>
+                  <h3 className="text-2xl font-headline font-bold leading-tight">{acc.bankName}</h3>
+                </div>
+                <button
+                  onClick={() => toggleHide(acc.id)}
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                  title={isHidden ? 'Show balance' : 'Hide balance'}
+                >
+                  {isHidden ? <Icons.Info size={16} /> : <Icons.Search size={16} />}
+                </button>
               </div>
 
-              {/* Card Center - Chip and Number */}
+              {/* Balance */}
               <div className="relative z-10">
-                <div className="w-12 h-9 bg-yellow-400/80 rounded-md mb-6 relative overflow-hidden border border-white/20 shadow-inner">
-                   <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 opacity-20">
-                      {[...Array(9)].map((_, i) => <div key={i} className="border border-black" />)}
-                   </div>
-                </div>
-                <p className="text-2xl font-mono tracking-[0.4em] sm:tracking-[0.5em] mb-4 opacity-90 truncate">
-                  {isHidden ? "**** **** **** ****" : "**** **** **** " + acc.accountNumber.slice(-4)}
+                <p className="text-[10px] uppercase font-bold opacity-60 tracking-[0.25em] mb-2">
+                  Total Balance
+                </p>
+                <p className="text-4xl font-headline font-bold tracking-tight">
+                  {isHidden ? '••••••' : acc.balance.toLocaleString()}
+                  <span className="text-sm font-medium opacity-60 ml-2">{acc.currency || 'ETB'}</span>
                 </p>
               </div>
 
-              {/* Card Footer */}
+              {/* Footer */}
               <div className="flex items-end justify-between relative z-10">
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest">Total Deposited</span>
-                    <button 
-                      onClick={() => toggleHide(acc.id)}
-                      className="p-1 hover:bg-white/10 rounded-full transition-colors"
-                    >
-                      {isHidden ? <Icons.Info size={14} /> : <Icons.Search size={14} className="rotate-45" />}
-                    </button>
-                  </div>
-                  <p className="text-xl font-headline font-bold">
-                    {isHidden ? "••••••" : acc.balance.toLocaleString()} 
-                    <span className="text-xs opacity-60 ml-1">{acc.currency || 'ETB'}</span>
+                  <p className="text-[10px] uppercase font-bold opacity-50 tracking-[0.25em] mb-1">
+                    Account
                   </p>
-                </div>
-                <div className="text-right">
-                  <button className="text-[10px] uppercase font-bold opacity-70 tracking-widest hover:opacity-100 transition-opacity">
-                    Add number
-                  </button>
+                  <p className="font-mono text-sm tracking-wider opacity-90">
+                    {isHidden ? '•••• ' + last4 : acc.accountNumber}
+                  </p>
                 </div>
               </div>
 
-              {/* Decorative Waves */}
-              <div className="absolute right-0 bottom-0 pointer-events-none opacity-20">
-                <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* Decorative Wave */}
+              <div className="absolute right-0 bottom-0 pointer-events-none opacity-10">
+                <svg width="220" height="220" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M200 0C200 0 150 50 150 100C150 150 200 200 200 200V0Z" fill="white"/>
                   <path opacity="0.5" d="M150 0C150 0 100 50 100 100C100 150 150 200 150 200V0Z" fill="white"/>
                 </svg>

@@ -1,5 +1,0 @@
-{
-  "name": "EthioVault Digital Ledger",
-  "description": "A production-grade retail management system for mobile inventory, sales tracking, and inter-store asset networking.",
-  "requestFramePermissions": ["camera"]
-}

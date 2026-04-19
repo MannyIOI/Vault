@@ -38,7 +38,8 @@ import {
   UserPlus,
   LayoutGrid,
   Shield,
-  Filter
+  Filter,
+  ScanLine
 } from 'lucide-react';
 
 export const Icons = {
@@ -89,7 +90,8 @@ export const Icons = {
   Hierarchy: Shield,
   Invite: UserPlus,
   DashboardGrid: LayoutGrid,
-  Filter: Filter
+  Filter: Filter,
+  QRCode: ScanLine
 };
 
 export type Screen = 
