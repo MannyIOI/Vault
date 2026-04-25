@@ -30,6 +30,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, user
         { id: 'BANK', label: 'Bank', icon: Icons.Bank, adminOnly: false },
         { id: 'LEDGER', label: 'Ledger', icon: Icons.Ledger, adminOnly: true },
         { id: 'LOANS', label: 'Loans', icon: Icons.Wallet, adminOnly: true },
+        { id: 'CONTRACTS', label: 'Contracts', icon: Icons.Receipt, adminOnly: true },
       ]
     },
     {
@@ -44,8 +45,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, user
       label: 'Management',
       items: [
         { id: 'ITEMS', label: 'Items', icon: Icons.Items, adminOnly: false },
+        { id: 'REPORTS', label: 'Reports', icon: Icons.DashboardGrid, adminOnly: true },
         { id: 'WAREHOUSE', label: 'Storage', icon: Icons.Vault, adminOnly: true },
         { id: 'EMPLOYEE', label: 'Staff', icon: Icons.Employee, adminOnly: true },
+        { id: 'CONTACTS', label: 'Contacts', icon: Icons.User, adminOnly: true },
       ]
     },
     {

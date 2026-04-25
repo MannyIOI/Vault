@@ -105,6 +105,7 @@ const COLLECTION_TO_TABLE: Record<string, string> = {
   bankTransactions: 'bank_transactions',
   loans: 'loans',
   contacts: 'contacts',
+  contracts: 'contracts',
   test: 'users', // legacy testConnection target — harmless
 };
 
@@ -294,6 +295,7 @@ const ORG_SCOPED_TABLES = new Set<string>([
   'invites',
   'reconciliations',
   'contacts',
+  'contracts',
 ]);
 
 let _cachedOrgId: string | null = null;

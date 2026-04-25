@@ -42,7 +42,8 @@ import { ExecutiveDashboard } from './components/ExecutiveDashboard';
 import { BankScreen } from './components/BankScreen';
 import { WarehouseScreen } from './components/WarehouseScreen';
 import { EmployeeScreen } from './components/EmployeeScreen';
-import { BankAccount, BankTransaction, Warehouse, InventoryItem, Loan, Contact } from './types';
+import { ReportsScreen } from './components/ReportsScreen';
+import { BankAccount, BankTransaction, Warehouse, InventoryItem, Loan, Contact, Contract } from './types';
 
 // --- Error Boundary ---
 class ErrorBoundary extends React.Component<{ children?: React.ReactNode }, { hasError: boolean; error: any }> {
@@ -247,7 +248,7 @@ const NotificationsOverlay = ({ isOpen, onClose, notifications, setScreen }: { i
   </AnimatePresence>
 );
 
-const ItemHistoryOverlay = ({ item, transactions, onClose, onReturn, onSettle }: { item: any, transactions: any[], onClose: () => void, onReturn: (item: any) => void, onSettle: (item: any, amount: number) => void }) => {
+const ItemHistoryOverlay = ({ item, transactions, onClose, onReturn, onSettle, onToggleMaintenance }: { item: any, transactions: any[], onClose: () => void, onReturn: (item: any) => void, onSettle: (item: any, amount: number) => void, onToggleMaintenance?: (id: string, value: boolean) => void }) => {
   const [isSettling, setIsSettling] = useState(false);
   const [settleAmount, setSettleAmount] = useState('');
 
@@ -299,6 +300,18 @@ const ItemHistoryOverlay = ({ item, transactions, onClose, onReturn, onSettle }:
                     <p className="font-headline font-bold print:text-slate-900">{Number(item.valuation || 0).toLocaleString()} ETB</p>
                   </div>
                 </div>
+                {onToggleMaintenance && (
+                  <button
+                    onClick={() => onToggleMaintenance(item.id, !item.underMaintenance)}
+                    className={`mt-4 w-full px-4 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all no-print ${
+                      item.underMaintenance
+                        ? 'bg-orange-500 text-white hover:bg-orange-600'
+                        : 'bg-white/10 text-white hover:bg-white/20'
+                    }`}
+                  >
+                    {item.underMaintenance ? '✓ Currently Under Maintenance — Mark as Returned to Service' : 'Mark as Under Maintenance'}
+                  </button>
+                )}
               </div>
             <div className="flex-grow overflow-y-auto p-8 no-scrollbar">
               {item.status === 'LENT' && (
@@ -848,7 +861,7 @@ const VaultDashboardScreen = ({ setScreen, transactions, metrics, onTransactionC
   );
 };
 
-const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSidebar, initialWarehouseId = 'ALL', userData, onApproveItem, onLogPurchase }: { inventory: any[], onItemClick: (item: any) => void, onMoveItem: (id: string, wId: string) => void, warehouses: Warehouse[], onOpenSidebar: () => void, initialWarehouseId?: string, userData?: any, onApproveItem?: (id: string) => void, onLogPurchase?: () => void }) => {
+const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSidebar, initialWarehouseId = 'ALL', userData, onApproveItem, onLogPurchase, onToggleMaintenance }: { inventory: any[], onItemClick: (item: any) => void, onMoveItem: (id: string, wId: string) => void, warehouses: Warehouse[], onOpenSidebar: () => void, initialWarehouseId?: string, userData?: any, onApproveItem?: (id: string) => void, onLogPurchase?: () => void, onToggleMaintenance?: (id: string, value: boolean) => void }) => {
   const [filter, setFilter] = useState('ALL ITEMS');
   const [statusFilter, setStatusFilter] = useState('ALL STATUS');
   const [searchQuery, setSearchQuery] = useState('');
@@ -866,7 +879,10 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
 
   const filteredInventory = inventory.filter(item => {
     const matchesFilter = filter === 'ALL ITEMS' || item.category === filter;
-    const matchesStatus = statusFilter === 'ALL STATUS' || item.status === statusFilter;
+    const matchesStatus =
+      statusFilter === 'ALL STATUS' ? true :
+      statusFilter === 'MAINTENANCE' ? !!item.underMaintenance :
+      item.status === statusFilter;
     const matchesSearch = (item.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) || 
                          (item.imei?.toLowerCase() || '').includes(searchQuery.toLowerCase());
     const matchesWarehouse = selectedWarehouseId === 'ALL' || item.warehouseId === selectedWarehouseId;
@@ -974,6 +990,7 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
                     <option value="LENT">LENT</option>
                     <option value="SOLD">SOLD</option>
                     <option value="IN_TRANSIT">IN TRANSIT</option>
+                    <option value="MAINTENANCE">MAINTENANCE</option>
                  </select>
 
                  <select 
@@ -1077,6 +1094,11 @@ const VaultScreen = ({ inventory, onItemClick, onMoveItem, warehouses, onOpenSid
                         item.status === 'PENDING_APPROVAL' ? 'text-amber-600 animate-pulse' :
                         'text-amber-500'
                       }`}>{item.status.replace('_', ' ')}</span>
+                      {item.underMaintenance && (
+                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-100">
+                          ⚠ Maintenance
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1964,6 +1986,537 @@ const LedgerScreen = ({
                   Record Entry
                 </button>
               </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+// =============================================================================
+// ContactsScreen — standalone management view (separate from Ledger tab).
+// Lists every contact with their outstanding receivable / payable balance and
+// supports create / edit / delete.
+// =============================================================================
+const ContactsScreen = ({
+  contacts,
+  loans,
+  onOpenSidebar,
+  onAddContact,
+  onUpdateContact,
+  onDeleteContact,
+}: {
+  contacts: Contact[];
+  loans: Loan[];
+  onOpenSidebar: () => void;
+  onAddContact: (c: Partial<Contact>) => Promise<Contact | null>;
+  onUpdateContact: (id: string, patch: Partial<Contact>) => Promise<void>;
+  onDeleteContact: (id: string) => Promise<void>;
+}) => {
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'VENDOR' | 'CUSTOMER' | 'BOTH'>('ALL');
+  const [editing, setEditing] = useState<Contact | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [draft, setDraft] = useState<Partial<Contact>>({ name: '', type: 'BOTH' });
+
+  const balanceFor = (contactId: string) => {
+    const open = loans.filter(l => l.contactId === contactId && l.status === 'OUTSTANDING');
+    const receivable = open.filter(l => l.type === 'GIVEN').reduce((s, l) => s + Number(l.amount || 0), 0);
+    const payable = open.filter(l => l.type === 'RECEIVED').reduce((s, l) => s + Number(l.amount || 0), 0);
+    return { receivable, payable };
+  };
+
+  const filtered = contacts
+    .filter(c => typeFilter === 'ALL' || c.type === typeFilter)
+    .filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.phone || '').includes(search) || (c.email || '').toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const openNew = () => { setEditing(null); setDraft({ name: '', type: 'BOTH' }); setShowModal(true); };
+  const openEdit = (c: Contact) => { setEditing(c); setDraft({ name: c.name, type: c.type, phone: c.phone, email: c.email, notes: c.notes }); setShowModal(true); };
+  const submit = async () => {
+    if (!draft.name?.trim()) return;
+    if (editing) await onUpdateContact(editing.id, draft);
+    else await onAddContact(draft);
+    setShowModal(false);
+  };
+
+  return (
+    <div className="flex-1 bg-[#F7F9FB] min-h-screen p-4 lg:p-8 pb-32">
+      <header className="mb-8 flex items-center gap-4">
+        <button
+          onClick={onOpenSidebar}
+          className="lg:hidden w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors"
+        >
+          <Icons.Menu size={20} />
+        </button>
+        <div className="hidden lg:flex w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 items-center justify-center text-slate-400">
+          <Icons.User size={20} />
+        </div>
+        <div>
+          <h2 className="text-xl font-headline font-bold text-on-surface">Contacts</h2>
+          <p className="text-xs text-slate-400 font-medium">Vendors and customers</p>
+        </div>
+      </header>
+
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between mb-6">
+        <div className="flex gap-3 flex-1">
+          <button
+            onClick={openNew}
+            className="flex items-center gap-2 bg-on-surface text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:opacity-90 whitespace-nowrap"
+          >
+            <Icons.Plus size={14} /> Create Contact
+          </button>
+          <div className="relative flex-1 max-w-md">
+            <Icons.Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search contacts..."
+              className="w-full bg-white border border-slate-100 rounded-xl pl-9 pr-4 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/10"
+            />
+          </div>
+        </div>
+        <select
+          value={typeFilter}
+          onChange={e => setTypeFilter(e.target.value as any)}
+          className="bg-white border border-slate-100 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10"
+        >
+          <option value="ALL">All types</option>
+          <option value="VENDOR">Vendors</option>
+          <option value="CUSTOMER">Customers</option>
+          <option value="BOTH">Both</option>
+        </select>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        {filtered.length === 0 ? (
+          <div className="py-20 text-center text-slate-400">
+            <Icons.User size={40} className="mx-auto opacity-20 mb-3" />
+            <p className="text-sm">No contacts found.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-6 py-3 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Name</th>
+                  <th className="px-6 py-3 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Type</th>
+                  <th className="px-6 py-3 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Phone</th>
+                  <th className="px-6 py-3 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Email</th>
+                  <th className="px-6 py-3 text-[10px] uppercase font-bold text-slate-500 tracking-widest text-right">Receivable</th>
+                  <th className="px-6 py-3 text-[10px] uppercase font-bold text-slate-500 tracking-widest text-right">Payable</th>
+                  <th className="px-6 py-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filtered.map(c => {
+                  const b = balanceFor(c.id);
+                  return (
+                    <tr key={c.id} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 font-bold text-sm text-on-surface">{c.name}</td>
+                      <td className="px-6 py-4">
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500">{c.type}</span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-500">{c.phone || '—'}</td>
+                      <td className="px-6 py-4 text-sm text-slate-500">{c.email || '—'}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-emerald-600 text-right">{b.receivable.toLocaleString()}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-red-600 text-right">{b.payable.toLocaleString()}</td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-1">
+                          <button onClick={() => openEdit(c)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400" title="Edit">
+                            <Icons.MoreVertical size={14} />
+                          </button>
+                          <button
+                            onClick={() => { if (confirm(`Delete contact "${c.name}"?`)) onDeleteContact(c.id); }}
+                            className="p-2 rounded-lg hover:bg-red-50 text-red-400"
+                            title="Delete"
+                          >
+                            <Icons.Close size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {showModal && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowModal(false)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] sm:w-[460px] bg-white rounded-3xl z-[210] p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-headline font-bold text-on-surface">{editing ? 'Edit Contact' : 'New Contact'}</h3>
+                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-100 rounded-xl"><Icons.Close size={20} /></button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Name *</label>
+                  <input value={draft.name || ''} onChange={e => setDraft({ ...draft, name: e.target.value })}
+                    className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" placeholder="Contact name" />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Type</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['VENDOR','CUSTOMER','BOTH'] as const).map(t => (
+                      <button key={t} type="button" onClick={() => setDraft({ ...draft, type: t })}
+                        className={`py-2.5 rounded-xl text-xs font-bold ${draft.type === t ? 'bg-primary text-white' : 'bg-slate-50 text-slate-500'}`}>{t}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Phone</label>
+                    <input value={draft.phone || ''} onChange={e => setDraft({ ...draft, phone: e.target.value })}
+                      className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Email</label>
+                    <input value={draft.email || ''} onChange={e => setDraft({ ...draft, email: e.target.value })}
+                      className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Notes</label>
+                  <textarea value={draft.notes || ''} onChange={e => setDraft({ ...draft, notes: e.target.value })}
+                    rows={2} className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" />
+                </div>
+                <button disabled={!draft.name?.trim()} onClick={submit}
+                  className="w-full bg-primary text-white py-4 rounded-2xl font-headline font-bold hover:opacity-90 disabled:opacity-40">
+                  {editing ? 'Save Changes' : 'Create Contact'}
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+// =============================================================================
+// ContractsScreen — agreements with a contact (vendor) supporting one-time,
+// milestone, or recurring payment schedules.
+// =============================================================================
+const ContractsScreen = ({
+  contracts,
+  contacts,
+  onOpenSidebar,
+  onAddContract,
+  onDeleteContract,
+}: {
+  contracts: Contract[];
+  contacts: Contact[];
+  onOpenSidebar: () => void;
+  onAddContract: (c: Partial<Contract>) => Promise<Contract | null>;
+  onDeleteContract: (id: string) => Promise<void>;
+}) => {
+  const [search, setSearch] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [tab, setTab] = useState<'Form' | 'Images'>('Form');
+  const today = new Date().toISOString().slice(0, 10);
+  const [draft, setDraft] = useState<Partial<Contract> & { _client?: string }>({
+    name: '',
+    amount: 0,
+    term: 'ONE_TIME',
+    startDate: today,
+    endDate: '',
+    status: 'APPROVED',
+    currency: 'ETB',
+  });
+  const [recurInterval, setRecurInterval] = useState<'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY'>('MONTHLY');
+  const [recurCount, setRecurCount] = useState(12);
+  const [milestones, setMilestones] = useState<{ date: string; amount: number; label: string }[]>([
+    { date: today, amount: 0, label: 'Milestone 1' },
+  ]);
+
+  const filtered = contracts
+    .filter(c => !search ||
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      (c.code || '').toLowerCase().includes(search.toLowerCase()) ||
+      (c.vendorParty || '').toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+  const submit = async () => {
+    let recurrence: any = null;
+    if (draft.term === 'RECURRING') recurrence = { interval: recurInterval, count: recurCount };
+    else if (draft.term === 'MILESTONES') recurrence = { milestones };
+    await onAddContract({ ...draft, recurrence });
+    setShowModal(false);
+    setDraft({ name: '', amount: 0, term: 'ONE_TIME', startDate: today, endDate: '', status: 'APPROVED', currency: 'ETB' });
+    setMilestones([{ date: today, amount: 0, label: 'Milestone 1' }]);
+  };
+
+  const fmtDate = (s?: string) => s ? new Date(s).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
+  return (
+    <div className="flex-1 bg-[#F7F9FB] min-h-screen p-4 lg:p-8 pb-32">
+      <header className="mb-8 flex items-center gap-4">
+        <button
+          onClick={onOpenSidebar}
+          className="lg:hidden w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors"
+        >
+          <Icons.Menu size={20} />
+        </button>
+        <div className="hidden lg:flex w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 items-center justify-center text-slate-400">
+          <Icons.Receipt size={20} />
+        </div>
+        <div>
+          <h2 className="text-xl font-headline font-bold text-on-surface">Contract</h2>
+          <p className="text-xs text-slate-400 font-medium">Manage company contracts</p>
+        </div>
+      </header>
+
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 bg-white border border-slate-200 text-on-surface px-5 py-3 rounded-2xl text-sm font-bold hover:bg-slate-50 whitespace-nowrap"
+        >
+          Create Contract <Icons.Plus size={16} />
+        </button>
+        <div className="relative flex-1">
+          <Icons.Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search contracts..."
+            className="w-full bg-white border border-slate-100 rounded-2xl pl-11 pr-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/10"
+          />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500"></th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500">Contract</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500">Party</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500">Amount</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500">Term</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500">Duration</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500">Status</th>
+                <th className="px-6 py-4"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {filtered.length === 0 ? (
+                <tr><td colSpan={8} className="py-16 text-center text-slate-400 text-sm">
+                  <Icons.Receipt size={40} className="mx-auto opacity-20 mb-3" />
+                  No contracts yet.
+                </td></tr>
+              ) : filtered.map(c => {
+                const termLabel = c.term === 'ONE_TIME' ? 'One-Time' : c.term === 'RECURRING' ? 'Recurring' : 'Milestones';
+                const statusBadge = c.status === 'APPROVED' || c.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700'
+                  : c.status === 'PENDING' ? 'bg-amber-50 text-amber-700'
+                  : c.status === 'CANCELLED' ? 'bg-red-50 text-red-700'
+                  : 'bg-slate-100 text-slate-500';
+                return (
+                  <tr key={c.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-5"><div className="w-4 h-4 border border-slate-200 rounded-full" /></td>
+                    <td className="px-6 py-5">
+                      <p className="font-bold text-sm text-on-surface">{c.name}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{c.code || '—'}</p>
+                    </td>
+                    <td className="px-6 py-5 text-sm text-slate-600">{c.vendorParty || contacts.find(x => x.id === c.contactId)?.name || '—'}</td>
+                    <td className="px-6 py-5 font-bold text-sm text-on-surface whitespace-nowrap">{Number(c.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {c.currency || 'ETB'}</td>
+                    <td className="px-6 py-5">
+                      <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">{termLabel}</span>
+                    </td>
+                    <td className="px-6 py-5 text-xs text-slate-500 whitespace-nowrap">
+                      <div>From: {fmtDate(c.startDate)}</div>
+                      <div>To: {fmtDate(c.endDate)}</div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusBadge}`}>{c.status.charAt(0) + c.status.slice(1).toLowerCase()}</span>
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      <div className="flex justify-end gap-1">
+                        <button className="p-2 rounded-lg hover:bg-slate-100 text-slate-400" title="Open">
+                          <Icons.ArrowUpRight size={14} />
+                        </button>
+                        <button
+                          onClick={() => { if (confirm(`Delete contract "${c.name}"?`)) onDeleteContract(c.id); }}
+                          className="p-2 rounded-lg hover:bg-slate-100 text-slate-400"
+                          title="More"
+                        >
+                          <Icons.MoreVertical size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {showModal && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowModal(false)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] sm:w-[600px] bg-white rounded-3xl z-[210] p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="text-xl font-headline font-bold text-on-surface">Create Contract</h3>
+                  <p className="text-xs text-slate-400 mt-1">Add a new contract and set up its payment schedule.</p>
+                </div>
+                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-100 rounded-xl"><Icons.Close size={20} /></button>
+              </div>
+
+              <div className="flex bg-slate-50 rounded-xl p-1 mb-5 w-fit">
+                {(['Form', 'Images'] as const).map(t => (
+                  <button key={t} onClick={() => setTab(t)}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold ${tab === t ? 'bg-white text-on-surface shadow-sm' : 'text-slate-400'}`}>
+                    {t} {t === 'Images' && <span className="ml-1 text-slate-300">0</span>}
+                  </button>
+                ))}
+              </div>
+
+              {tab === 'Form' ? (
+                <div className="space-y-5">
+                  <div>
+                    <label className="text-xs font-bold text-on-surface mb-2 block">Parties <span className="text-red-500">*</span></label>
+                    <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                      <div>
+                        <label className="text-[10px] text-slate-500 mb-1 block">Client (Paying)</label>
+                        <input value={draft.clientParty || ''} onChange={e => setDraft({ ...draft, clientParty: e.target.value })}
+                          placeholder="Client name"
+                          className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" />
+                      </div>
+                      <button type="button" className="mt-5 p-2.5 bg-slate-50 rounded-xl text-slate-400 hover:bg-slate-100" title="Swap">
+                        <Icons.ArrowLeftRight size={14} />
+                      </button>
+                      <div>
+                        <label className="text-[10px] text-slate-500 mb-1 block">Vendor (Receiving)</label>
+                        <select value={draft.contactId || ''} onChange={e => {
+                          const id = e.target.value;
+                          const c = contacts.find(x => x.id === id);
+                          setDraft({ ...draft, contactId: id || undefined, vendorParty: c?.name });
+                        }}
+                          className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10">
+                          <option value="">Search vendor</option>
+                          {contacts.filter(c => c.type !== 'CUSTOMER').map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-on-surface mb-2 block">Contract Name <span className="text-red-500">*</span></label>
+                      <input value={draft.name || ''} onChange={e => setDraft({ ...draft, name: e.target.value })}
+                        placeholder="e.g. Office Rent"
+                        className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-on-surface mb-2 block">Total Amount <span className="text-red-500">*</span></label>
+                      <input type="number" value={draft.amount || ''} onChange={e => setDraft({ ...draft, amount: Number(e.target.value) })}
+                        placeholder="0.00"
+                        className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-on-surface mb-2 block">Start Date <span className="text-red-500">*</span></label>
+                      <input type="date" value={draft.startDate?.slice(0, 10) || ''} onChange={e => setDraft({ ...draft, startDate: e.target.value })}
+                        className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-on-surface mb-2 block">End Date</label>
+                      <input type="date" value={draft.endDate?.slice(0, 10) || ''} onChange={e => setDraft({ ...draft, endDate: e.target.value })}
+                        className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-on-surface mb-2 block">Payment Schedule</label>
+                    <div className="flex bg-slate-50 rounded-xl p-1 w-fit mb-3">
+                      {([
+                        { id: 'ONE_TIME', label: 'One-Time' },
+                        { id: 'MILESTONES', label: 'Milestones' },
+                        { id: 'RECURRING', label: 'Recurring Schedule' },
+                      ] as const).map(t => (
+                        <button key={t.id} type="button" onClick={() => setDraft({ ...draft, term: t.id })}
+                          className={`px-4 py-1.5 rounded-lg text-xs font-bold ${draft.term === t.id ? 'bg-white text-on-surface shadow-sm' : 'text-slate-400'}`}>{t.label}</button>
+                      ))}
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-5 min-h-[100px]">
+                      {draft.term === 'ONE_TIME' && (
+                        <p className="text-center text-xs text-slate-400 py-6">A single payment will be scheduled on the End Date (or Start Date if none).</p>
+                      )}
+                      {draft.term === 'RECURRING' && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Interval</label>
+                            <select value={recurInterval} onChange={e => setRecurInterval(e.target.value as any)}
+                              className="w-full bg-white border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10">
+                              <option value="WEEKLY">Weekly</option>
+                              <option value="MONTHLY">Monthly</option>
+                              <option value="QUARTERLY">Quarterly</option>
+                              <option value="YEARLY">Yearly</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Number of payments</label>
+                            <input type="number" min={1} value={recurCount} onChange={e => setRecurCount(Number(e.target.value))}
+                              className="w-full bg-white border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" />
+                          </div>
+                        </div>
+                      )}
+                      {draft.term === 'MILESTONES' && (
+                        <div className="space-y-2">
+                          {milestones.map((m, i) => (
+                            <div key={i} className="grid grid-cols-[1fr_140px_140px_auto] gap-2 items-center">
+                              <input value={m.label} onChange={e => setMilestones(ms => ms.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+                                placeholder="Label" className="bg-white border-none rounded-lg p-2 text-xs" />
+                              <input type="date" value={m.date} onChange={e => setMilestones(ms => ms.map((x, j) => j === i ? { ...x, date: e.target.value } : x))}
+                                className="bg-white border-none rounded-lg p-2 text-xs" />
+                              <input type="number" value={m.amount} onChange={e => setMilestones(ms => ms.map((x, j) => j === i ? { ...x, amount: Number(e.target.value) } : x))}
+                                placeholder="Amount" className="bg-white border-none rounded-lg p-2 text-xs" />
+                              <button type="button" onClick={() => setMilestones(ms => ms.filter((_, j) => j !== i))}
+                                className="p-2 text-slate-400 hover:text-red-500"><Icons.Close size={14} /></button>
+                            </div>
+                          ))}
+                          <button type="button"
+                            onClick={() => setMilestones(ms => [...ms, { date: today, amount: 0, label: `Milestone ${ms.length + 1}` }])}
+                            className="text-xs font-bold text-primary hover:underline flex items-center gap-1 mt-2">
+                            <Icons.Plus size={12} /> Add milestone
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100">Cancel</button>
+                    <button
+                      disabled={!draft.name?.trim() || !draft.contactId || !draft.amount}
+                      onClick={submit}
+                      className="px-5 py-2.5 rounded-xl text-sm font-bold bg-on-surface text-white hover:opacity-90 disabled:opacity-40">
+                      Submit Contract
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-16 text-center text-slate-400 text-sm">
+                  Image attachments are not supported yet.
+                </div>
+              )}
             </motion.div>
           </>
         )}
@@ -3280,6 +3833,9 @@ const SCREEN_DEPS: Partial<Record<Screen, string[]>> = {
   ROLE_HIERARCHY: ['users'],
   SALES_MANAGER:  ['transactions'],
   SALES:          ['transactions'],
+  CONTACTS:       ['contacts', 'loans'],
+  CONTRACTS:      ['contracts', 'contacts'],
+  REPORTS:        ['transactions', 'inventory', 'loans', 'contacts', 'bank_accounts'],
 };
 
 // --- Main App ---
@@ -3302,7 +3858,7 @@ function App() {
   const [userData, setUserData] = useState<any>(null);
   const [orgName, setOrgName] = useState<string>('');
   // Screens visible only to admin/manager users.
-  const ADMIN_ONLY_SCREENS: Screen[] = ['LOANS', 'SALES_MANAGER', 'EMPLOYEE', 'ROLE_HIERARCHY', 'AUDIT', 'WAREHOUSE', 'VAULT_DASHBOARD'];
+  const ADMIN_ONLY_SCREENS: Screen[] = ['LOANS', 'SALES_MANAGER', 'EMPLOYEE', 'ROLE_HIERARCHY', 'AUDIT', 'WAREHOUSE', 'VAULT_DASHBOARD', 'CONTACTS', 'CONTRACTS', 'LEDGER', 'REPORTS'];
   React.useEffect(() => {
     if (!userData) return;
     if (userData.role !== 'admin' && ADMIN_ONLY_SCREENS.includes(screen)) {
@@ -3320,6 +3876,7 @@ function App() {
   const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [cart, setCart] = useState<{item: InventoryItem, salePrice: number}[]>([]);
@@ -3526,6 +4083,14 @@ function App() {
       } catch (e) { console.error('Failed to load contacts', e); notify.error(e); }
     };
 
+    const fetchContracts = async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'contracts'), orderBy('createdAt', 'desc')));
+        setContracts(snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Contract)));
+        loadedRef.current.add('contracts');
+      } catch (e) { console.error('Failed to load contracts', e); notify.error(e); }
+    };
+
     const fetchUsers = async () => {
       try {
         const snap = await getDocs(collection(db, 'users'));
@@ -3553,6 +4118,7 @@ function App() {
       bank_transactions: fetchBankTransactions,
       loans: fetchLoans,
       contacts: fetchContacts,
+      contracts: fetchContracts,
       users: fetchUsers,
       warehouses: fetchWarehouses,
     };
@@ -4184,6 +4750,70 @@ function App() {
     }
   };
 
+  const handleAddContract = async (c: Partial<Contract>): Promise<Contract | null> => {
+    if (!userData?.organizationId) {
+      handleDbError(new Error('No organization selected'), OperationType.WRITE, 'contracts');
+      return null;
+    }
+    if (!c.name?.trim() || !c.contactId) return null;
+    try {
+      const code = `CONT-${String(contracts.length + 1).padStart(5, '0')}`;
+      const vendor = contacts.find(x => x.id === c.contactId);
+      const payload: any = {
+        code,
+        name: c.name.trim(),
+        contactId: c.contactId,
+        clientParty: c.clientParty || orgName || null,
+        vendorParty: vendor?.name || c.vendorParty || null,
+        amount: Number(c.amount || 0),
+        currency: c.currency || 'ETB',
+        term: c.term || 'ONE_TIME',
+        recurrence: c.recurrence || null,
+        startDate: c.startDate || null,
+        endDate: c.endDate || null,
+        status: c.status || 'APPROVED',
+        notes: c.notes || null,
+        organizationId: userData.organizationId,
+        createdAt: new Date().toISOString(),
+      };
+      const ref = await addDoc(collection(db, 'contracts'), payload);
+      const created: Contract = { id: ref.id, ...payload } as Contract;
+      setContracts(prev => [created, ...prev]);
+      return created;
+    } catch (e) {
+      handleDbError(e, OperationType.WRITE, 'contracts');
+      return null;
+    }
+  };
+
+  const handleUpdateContract = async (id: string, patch: Partial<Contract>) => {
+    try {
+      await setDoc(doc(db, 'contracts', id), patch, { merge: true });
+      setContracts(prev => prev.map(c => c.id === id ? { ...c, ...patch } as Contract : c));
+    } catch (e) {
+      handleDbError(e, OperationType.WRITE, `contracts/${id}`);
+    }
+  };
+
+  const handleDeleteContract = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'contracts', id));
+      setContracts(prev => prev.filter(c => c.id !== id));
+    } catch (e) {
+      handleDbError(e, OperationType.DELETE, `contracts/${id}`);
+    }
+  };
+
+  const handleToggleMaintenance = async (id: string, value: boolean) => {
+    try {
+      await setDoc(doc(db, 'inventory', id), { underMaintenance: value }, { merge: true });
+      setInventory(prev => prev.map(it => it.id === id ? { ...it, underMaintenance: value } : it));
+      setSelectedItemForHistory((prev: any) => prev && prev.id === id ? { ...prev, underMaintenance: value } : prev);
+    } catch (e) {
+      handleDbError(e, OperationType.WRITE, `inventory/${id}`);
+    }
+  };
+
   const handleAddLoan = async (loan: Partial<Loan>) => {
     if (!userData?.organizationId) {
       handleDbError(new Error('No organization selected'), OperationType.WRITE, 'loans');
@@ -4387,6 +5017,7 @@ function App() {
                     onOpenSidebar={() => setIsSidebarOpen(true)}
                     initialWarehouseId={targetWarehouseId}
                     onLogPurchase={() => setScreen('PURCHASE')}
+                    onToggleMaintenance={handleToggleMaintenance}
                   />
                 )}
                 {screen === 'NETWORK' && (
@@ -4409,6 +5040,36 @@ function App() {
                     onDeleteContact={handleDeleteContact}
                     onSettleLoan={handleSettleLoan}
                     onAddLoan={handleAddLoan}
+                  />
+                )}
+                {screen === 'CONTACTS' && (
+                  <ContactsScreen
+                    contacts={contacts}
+                    loans={loans}
+                    onOpenSidebar={() => setIsSidebarOpen(true)}
+                    onAddContact={handleAddContact}
+                    onUpdateContact={handleUpdateContact}
+                    onDeleteContact={handleDeleteContact}
+                  />
+                )}
+                {screen === 'CONTRACTS' && (
+                  <ContractsScreen
+                    contracts={contracts}
+                    contacts={contacts}
+                    onOpenSidebar={() => setIsSidebarOpen(true)}
+                    onAddContract={handleAddContract}
+                    onDeleteContract={handleDeleteContract}
+                  />
+                )}
+                {screen === 'REPORTS' && (
+                  <ReportsScreen
+                    transactions={visibleTransactions}
+                    inventory={inventory}
+                    loans={loans}
+                    contacts={contacts}
+                    bankAccounts={visibleBankAccounts}
+                    orgName={orgName}
+                    onOpenSidebar={() => setIsSidebarOpen(true)}
                   />
                 )}
                 {screen === 'RECONCILE' && (
@@ -4592,6 +5253,7 @@ function App() {
                 onClose={() => setSelectedItemForHistory(null)}
                 onReturn={handleReturn}
                 onSettle={handleSettleLentItem}
+                onToggleMaintenance={handleToggleMaintenance}
               />
 
               {selectedTransaction && (

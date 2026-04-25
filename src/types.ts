@@ -105,6 +105,7 @@ export type Screen =
   | 'ITEMS' 
   | 'WAREHOUSE' 
   | 'EMPLOYEE' 
+  | 'REPORTS'
   | 'ROLE_HIERARCHY'
   | 'VAULT' 
   | 'NETWORK' 
@@ -120,7 +121,9 @@ export type Screen =
   | 'PROFILE' 
   | 'DEBTS' 
   | 'NOTIFICATIONS' 
-  | 'ONBOARDING';
+  | 'ONBOARDING'
+  | 'CONTACTS'
+  | 'CONTRACTS';
 
 export interface Transaction {
   id: string;
@@ -151,6 +154,26 @@ export interface InventoryItem {
   isApproved?: boolean;
   lentTo?: string;
   expectedReturnDate?: string;
+  underMaintenance?: boolean;
+}
+
+export interface Contract {
+  id: string;
+  organizationId?: string;
+  code?: string;
+  name: string;
+  contactId?: string;
+  clientParty?: string;
+  vendorParty?: string;
+  amount: number;
+  currency?: string;
+  term: 'ONE_TIME' | 'MILESTONES' | 'RECURRING';
+  recurrence?: any;
+  startDate?: string;
+  endDate?: string;
+  status: 'PENDING' | 'APPROVED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  notes?: string;
+  createdAt?: string;
 }
 
 export interface Warehouse {
