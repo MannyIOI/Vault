@@ -1870,7 +1870,7 @@ const LedgerScreen = ({
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowContactModal(false)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] sm:w-[460px] bg-white rounded-3xl z-[210] p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] sm:w-[460px] bg-white rounded-3xl z-[210] p-5 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-headline font-bold text-on-surface">{editingContact ? 'Edit Contact' : 'New Contact'}</h3>
                 <button onClick={() => setShowContactModal(false)} className="p-2 hover:bg-slate-100 rounded-xl"><Icons.Close size={20} /></button>
@@ -1926,7 +1926,7 @@ const LedgerScreen = ({
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowAdjustModal(false)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] sm:w-[460px] bg-white rounded-3xl z-[210] p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] sm:w-[460px] bg-white rounded-3xl z-[210] p-5 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-headline font-bold text-on-surface">New Adjustment</h3>
                 <button onClick={() => setShowAdjustModal(false)} className="p-2 hover:bg-slate-100 rounded-xl"><Icons.Close size={20} /></button>
@@ -2096,7 +2096,50 @@ const ContactsScreen = ({
             <p className="text-sm">No contacts found.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Mobile cards */}
+            <ul className="md:hidden divide-y divide-slate-50">
+              {filtered.map(c => {
+                const b = balanceFor(c.id);
+                return (
+                  <li key={c.id} className="p-4">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-bold text-sm text-on-surface truncate">{c.name}</p>
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500">{c.type}</span>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1 truncate">
+                          {c.phone || c.email || 'No contact info'}
+                        </p>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <button onClick={() => openEdit(c)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400">
+                          <Icons.MoreVertical size={14} />
+                        </button>
+                        <button
+                          onClick={() => { if (confirm(`Delete contact "${c.name}"?`)) onDeleteContact(c.id); }}
+                          className="p-2 rounded-lg hover:bg-red-50 text-red-400">
+                          <Icons.Close size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-emerald-50 rounded-lg px-3 py-2">
+                        <p className="text-[9px] uppercase font-bold text-emerald-700 tracking-widest">Receivable</p>
+                        <p className="font-bold text-sm text-emerald-700">{b.receivable.toLocaleString()}</p>
+                      </div>
+                      <div className="bg-red-50 rounded-lg px-3 py-2">
+                        <p className="text-[9px] uppercase font-bold text-red-700 tracking-widest">Payable</p>
+                        <p className="font-bold text-sm text-red-700">{b.payable.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-slate-50">
                 <tr>
@@ -2141,7 +2184,8 @@ const ContactsScreen = ({
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
 
@@ -2151,7 +2195,7 @@ const ContactsScreen = ({
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowModal(false)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] sm:w-[460px] bg-white rounded-3xl z-[210] p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] sm:w-[460px] bg-white rounded-3xl z-[210] p-5 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-headline font-bold text-on-surface">{editing ? 'Edit Contact' : 'New Contact'}</h3>
                 <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-100 rounded-xl"><Icons.Close size={20} /></button>
@@ -2298,8 +2342,49 @@ const ContractsScreen = ({
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
+        {filtered.length === 0 ? (
+          <div className="py-16 text-center text-slate-400 text-sm">
+            <Icons.Receipt size={40} className="mx-auto opacity-20 mb-3" />
+            No contracts yet.
+          </div>
+        ) : (
+          <>
+            {/* Mobile cards */}
+            <ul className="md:hidden divide-y divide-slate-50">
+              {filtered.map(c => {
+                const termLabel = c.term === 'ONE_TIME' ? 'One-Time' : c.term === 'RECURRING' ? 'Recurring' : 'Milestones';
+                const statusBadge = c.status === 'APPROVED' || c.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700'
+                  : c.status === 'PENDING' ? 'bg-amber-50 text-amber-700'
+                  : c.status === 'CANCELLED' ? 'bg-red-50 text-red-700'
+                  : 'bg-slate-100 text-slate-500';
+                return (
+                  <li key={c.id} className="p-4">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-sm text-on-surface truncate">{c.name}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{c.code || '—'} · {c.vendorParty || contacts.find(x => x.id === c.contactId)?.name || '—'}</p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${statusBadge}`}>{c.status.charAt(0) + c.status.slice(1).toLowerCase()}</span>
+                    </div>
+                    <div className="flex items-baseline justify-between mb-2">
+                      <p className="font-headline font-bold text-base text-on-surface">{Number(c.amount || 0).toLocaleString()} <span className="text-xs text-slate-400 font-medium">{c.currency || 'ETB'}</span></p>
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-medium">{termLabel}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-500">
+                      <span>{fmtDate(c.startDate)} → {fmtDate(c.endDate)}</span>
+                      <button
+                        onClick={() => { if (confirm(`Delete contract "${c.name}"?`)) onDeleteContract(c.id); }}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
+                        <Icons.MoreVertical size={14} />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left">
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500"></th>
@@ -2313,12 +2398,7 @@ const ContractsScreen = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filtered.length === 0 ? (
-                <tr><td colSpan={8} className="py-16 text-center text-slate-400 text-sm">
-                  <Icons.Receipt size={40} className="mx-auto opacity-20 mb-3" />
-                  No contracts yet.
-                </td></tr>
-              ) : filtered.map(c => {
+              {filtered.map(c => {
                 const termLabel = c.term === 'ONE_TIME' ? 'One-Time' : c.term === 'RECURRING' ? 'Recurring' : 'Milestones';
                 const statusBadge = c.status === 'APPROVED' || c.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700'
                   : c.status === 'PENDING' ? 'bg-amber-50 text-amber-700'
@@ -2362,7 +2442,9 @@ const ContractsScreen = ({
               })}
             </tbody>
           </table>
-        </div>
+            </div>
+          </>
+        )}
       </div>
 
       <AnimatePresence>
@@ -2371,7 +2453,7 @@ const ContractsScreen = ({
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowModal(false)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] sm:w-[600px] bg-white rounded-3xl z-[210] p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[94%] sm:w-[600px] bg-white rounded-3xl z-[210] p-5 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h3 className="text-xl font-headline font-bold text-on-surface">Create Contract</h3>
@@ -2393,7 +2475,7 @@ const ContractsScreen = ({
                 <div className="space-y-5">
                   <div>
                     <label className="text-xs font-bold text-on-surface mb-2 block">Parties <span className="text-red-500">*</span></label>
-                    <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-3 sm:gap-2 sm:items-center">
                       <div>
                         <label className="text-[10px] text-slate-500 mb-1 block">Client (Paying)</label>
                         <div className="w-full bg-slate-100 border border-slate-200 rounded-xl p-3 text-sm text-slate-600 flex items-center gap-2" title="Auto-set to your organization and account">
@@ -2401,7 +2483,7 @@ const ContractsScreen = ({
                           <span className="truncate">{clientLabel}</span>
                         </div>
                       </div>
-                      <div className="mt-5 p-2.5 text-slate-300">
+                      <div className="hidden sm:block mt-5 p-2.5 text-slate-300">
                         <Icons.ArrowLeftRight size={14} />
                       </div>
                       <div>
@@ -2421,7 +2503,7 @@ const ContractsScreen = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-bold text-on-surface mb-2 block">Contract Name <span className="text-red-500">*</span></label>
                       <input value={draft.name || ''} onChange={e => setDraft({ ...draft, name: e.target.value })}
@@ -2436,7 +2518,7 @@ const ContractsScreen = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-bold text-on-surface mb-2 block">Start Date <span className="text-red-500">*</span></label>
                       <input type="date" value={draft.startDate?.slice(0, 10) || ''} onChange={e => setDraft({ ...draft, startDate: e.target.value })}
@@ -2451,14 +2533,14 @@ const ContractsScreen = ({
 
                   <div>
                     <label className="text-xs font-bold text-on-surface mb-2 block">Payment Schedule</label>
-                    <div className="flex bg-slate-50 rounded-xl p-1 w-fit mb-3">
+                    <div className="flex flex-wrap bg-slate-50 rounded-xl p-1 w-full sm:w-fit mb-3">
                       {([
                         { id: 'ONE_TIME', label: 'One-Time' },
                         { id: 'MILESTONES', label: 'Milestones' },
                         { id: 'RECURRING', label: 'Recurring Schedule' },
                       ] as const).map(t => (
                         <button key={t.id} type="button" onClick={() => setDraft({ ...draft, term: t.id })}
-                          className={`px-4 py-1.5 rounded-lg text-xs font-bold ${draft.term === t.id ? 'bg-white text-on-surface shadow-sm' : 'text-slate-400'}`}>{t.label}</button>
+                          className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold ${draft.term === t.id ? 'bg-white text-on-surface shadow-sm' : 'text-slate-400'}`}>{t.label}</button>
                       ))}
                     </div>
                     <div className="bg-slate-50 rounded-xl p-5 min-h-[100px]">
@@ -2487,15 +2569,15 @@ const ContractsScreen = ({
                       {draft.term === 'MILESTONES' && (
                         <div className="space-y-2">
                           {milestones.map((m, i) => (
-                            <div key={i} className="grid grid-cols-[1fr_140px_140px_auto] gap-2 items-center">
+                            <div key={i} className="grid grid-cols-2 sm:grid-cols-[1fr_140px_140px_auto] gap-2 items-center">
                               <input value={m.label} onChange={e => setMilestones(ms => ms.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
-                                placeholder="Label" className="bg-white border-none rounded-lg p-2 text-xs" />
+                                placeholder="Label" className="col-span-2 sm:col-span-1 bg-white border-none rounded-lg p-2 text-xs" />
                               <input type="date" value={m.date} onChange={e => setMilestones(ms => ms.map((x, j) => j === i ? { ...x, date: e.target.value } : x))}
                                 className="bg-white border-none rounded-lg p-2 text-xs" />
                               <input type="number" value={m.amount} onChange={e => setMilestones(ms => ms.map((x, j) => j === i ? { ...x, amount: Number(e.target.value) } : x))}
                                 placeholder="Amount" className="bg-white border-none rounded-lg p-2 text-xs" />
                               <button type="button" onClick={() => setMilestones(ms => ms.filter((_, j) => j !== i))}
-                                className="p-2 text-slate-400 hover:text-red-500"><Icons.Close size={14} /></button>
+                                className="col-span-2 sm:col-span-1 p-2 text-slate-400 hover:text-red-500 self-center"><Icons.Close size={14} /></button>
                             </div>
                           ))}
                           <button type="button"
@@ -4989,7 +5071,7 @@ function App() {
                 onClose={() => setIsSidebarOpen(false)}
               />
               
-              <main className="flex-1 lg:ml-64 min-h-screen transition-all duration-300">
+              <main className="flex-1 min-w-0 lg:ml-64 min-h-screen transition-all duration-300 overflow-x-hidden">
                 {screen === 'PROFILE' && <ProfileScreen onBack={() => setScreen('DASHBOARD')} user={user} userData={userData} onUpdate={handleUpdateProfile} canInstall={!!deferredPrompt} onInstall={handleInstall} />}
                 {screen === 'DASHBOARD' && (
                   <ExecutiveDashboard 

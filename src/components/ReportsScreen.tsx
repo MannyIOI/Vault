@@ -81,10 +81,10 @@ const ReportSelector: React.FC<{
   }, []);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative w-full sm:w-auto">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-on-surface hover:bg-slate-50 transition-colors min-w-[180px] justify-between"
+        className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-on-surface hover:bg-slate-50 transition-colors w-full sm:min-w-[180px] justify-between"
       >
         <span>{REPORT_LABELS[value]}</span>
         <Icons.ArrowRight size={14} className="text-slate-400 rotate-90" />
@@ -125,13 +125,13 @@ const HeroBanner: React.FC<{
   subtitle?: React.ReactNode;
   right?: React.ReactNode;
 }> = ({ label, primary, subtitle, right }) => (
-  <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-2xl p-6 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
+  <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-2xl p-5 sm:p-6 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
     <div>
       <p className="text-xs text-slate-300 font-medium mb-2">{label}</p>
-      <h2 className="text-3xl sm:text-4xl font-headline font-bold tracking-tight">{primary}</h2>
+      <h2 className="text-2xl sm:text-4xl font-headline font-bold tracking-tight break-words">{primary}</h2>
       {subtitle && <div className="text-xs text-slate-300 mt-2">{subtitle}</div>}
     </div>
-    {right && <div className="flex items-center gap-2">{right}</div>}
+    {right && <div className="flex items-center gap-2 flex-wrap">{right}</div>}
   </div>
 );
 
@@ -243,7 +243,7 @@ const SalesReport: React.FC<{ transactions: Transaction[]; bankAccounts: BankAcc
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6">
           <p className="text-sm font-medium text-slate-500 mb-4">Sales Chart</p>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -270,7 +270,7 @@ const SalesReport: React.FC<{ transactions: Transaction[]; bankAccounts: BankAcc
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-medium text-slate-500">Category</p>
             <Icons.Info size={16} className="text-slate-300" />
@@ -302,7 +302,32 @@ const SalesReport: React.FC<{ transactions: Transaction[]; bankAccounts: BankAcc
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Mobile cards */}
+        <ul className="md:hidden divide-y divide-slate-100">
+          {inRange.length === 0 && (
+            <li className="py-12 text-center text-slate-400 text-sm">No sales in this date range.</li>
+          )}
+          {inRange.map(t => {
+            const customer = t.location || 'Walk in';
+            const initials = customer.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
+            return (
+              <li key={t.id} className="p-4">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-9 h-9 shrink-0 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">{initials}</div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm text-on-surface truncate">{customer}</p>
+                      <p className="text-xs text-slate-400 truncate">{t.item}</p>
+                    </div>
+                  </div>
+                  <p className="font-bold text-sm text-on-surface whitespace-nowrap">{fmt(t.amount || 0)}</p>
+                </div>
+                <p className="text-[10px] text-slate-400">{fmtDateTime(new Date(t.timestamp))}</p>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-xs font-medium">
@@ -459,13 +484,13 @@ const StockReport: React.FC<{ inventory: InventoryItem[] }> = ({ inventory }) =>
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 relative">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 relative">
           <p className="text-sm text-slate-500 font-medium mb-3">Total Pcs</p>
           <div className="flex items-center gap-3">
             <Icons.Network size={28} className="text-slate-700" />
-            <p className="text-3xl font-headline font-bold text-on-surface">{fmt(totalPcs)}</p>
+            <p className="text-2xl sm:text-3xl font-headline font-bold text-on-surface">{fmt(totalPcs)}</p>
           </div>
-          <span className="absolute top-6 right-6 w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
+          <span className="absolute top-4 sm:top-6 right-4 sm:right-6 w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
             <Icons.ArrowUpRight size={16} />
           </span>
           <div className="mt-3">
@@ -476,13 +501,13 @@ const StockReport: React.FC<{ inventory: InventoryItem[] }> = ({ inventory }) =>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 relative">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 relative">
           <p className="text-sm text-slate-500 font-medium mb-3">Total Categories</p>
           <div className="flex items-center gap-3">
             <Icons.Package size={28} className="text-slate-700" />
-            <p className="text-3xl font-headline font-bold text-on-surface">{totalCategories}</p>
+            <p className="text-2xl sm:text-3xl font-headline font-bold text-on-surface">{totalCategories}</p>
           </div>
-          <span className="absolute top-6 right-6 w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
+          <span className="absolute top-4 sm:top-6 right-4 sm:right-6 w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
             <Icons.ArrowUpRight size={16} />
           </span>
           <div className="mt-3">
@@ -495,7 +520,45 @@ const StockReport: React.FC<{ inventory: InventoryItem[] }> = ({ inventory }) =>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Mobile cards */}
+        <div className="md:hidden">
+          {groups.length === 0 && (
+            <p className="py-12 text-center text-slate-400 text-sm">No items in stock.</p>
+          )}
+          {groups.map(g => {
+            const isCollapsed = !!collapsed[g.name];
+            return (
+              <div key={g.name} className="border-b border-slate-100 last:border-b-0">
+                <button
+                  onClick={() => setCollapsed(c => ({ ...c, [g.name]: !c[g.name] }))}
+                  className="w-full flex items-center justify-between gap-2 bg-slate-50/60 px-4 py-3"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="bg-slate-900 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded shrink-0">{g.name}</span>
+                    <span className="text-[10px] text-slate-500 truncate">{g.pcs} items · {fmt(g.amount)}</span>
+                  </div>
+                  <Icons.ArrowRight size={12} className={`shrink-0 text-slate-400 transition-transform ${isCollapsed ? '' : '-rotate-90'}`} />
+                </button>
+                {!isCollapsed && (
+                  <ul className="divide-y divide-slate-100">
+                    {g.items.map(i => (
+                      <li key={i.id} className="px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-on-surface truncate">{i.name}</p>
+                            <p className="text-[10px] text-blue-500 truncate">{i.imei}</p>
+                          </div>
+                          <p className="text-sm font-medium text-on-surface whitespace-nowrap">{fmt(i.valuation || 0)} ETB</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-xs font-medium">
@@ -663,10 +726,10 @@ const PRReport: React.FC<{
 
   return (
     <>
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-2xl p-6 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
+      <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-2xl p-5 sm:p-6 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
         <div>
           <p className="text-xs text-slate-300 font-medium mb-1">Financial document</p>
-          <h2 className="text-3xl sm:text-4xl font-headline font-bold tracking-tight">
+          <h2 className="text-2xl sm:text-4xl font-headline font-bold tracking-tight break-words">
             {orgName || 'Organization'}
           </h2>
           <p className="text-xs text-slate-300 mt-2">
@@ -698,7 +761,7 @@ const PRReport: React.FC<{
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mb-6">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 mb-6">
         <p className="text-sm font-medium text-slate-600 mb-4">Daily payables vs receivables</p>
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
@@ -732,7 +795,46 @@ const PRReport: React.FC<{
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Mobile cards */}
+        <ul className="md:hidden divide-y divide-slate-100">
+          {balanceByContact.length === 0 && (
+            <li className="py-12 text-center text-slate-400 text-sm">No outstanding payables or receivables.</li>
+          )}
+          {balanceByContact.map(c => {
+            const balance = c.payable - c.receivable;
+            const isPayable = balance > 0;
+            const initials = c.name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
+            return (
+              <li key={c.name} className="p-4">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-9 h-9 shrink-0 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">{initials}</div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm text-on-surface truncate">{c.name}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{c.phone || '—'} · {c.ledgers} ledger{c.ledgers === 1 ? '' : 's'}</p>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${isPayable ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>{isPayable ? 'Payable' : 'Receivable'}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-red-50 rounded-lg px-2 py-2">
+                    <p className="text-[9px] uppercase font-bold text-red-700 tracking-widest">Payable</p>
+                    <p className="text-xs font-bold text-red-700 mt-0.5">{fmt(c.payable)}</p>
+                  </div>
+                  <div className="bg-emerald-50 rounded-lg px-2 py-2">
+                    <p className="text-[9px] uppercase font-bold text-emerald-700 tracking-widest">Recv.</p>
+                    <p className="text-xs font-bold text-emerald-700 mt-0.5">{fmt(c.receivable)}</p>
+                  </div>
+                  <div className="bg-slate-100 rounded-lg px-2 py-2">
+                    <p className="text-[9px] uppercase font-bold text-slate-600 tracking-widest">Balance</p>
+                    <p className="text-xs font-bold text-on-surface mt-0.5">{fmt(Math.abs(balance))}</p>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-xs font-medium">
@@ -940,7 +1042,7 @@ const BalanceSheet: React.FC<{
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 flex flex-col">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-slate-500 font-medium">Asset Distribution</p>
             <Icons.Info size={16} className="text-slate-300" />
@@ -1004,19 +1106,19 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
   const [report, setReport] = useState<ReportType>('sales');
 
   return (
-    <div className="flex-1 bg-[#F7F9FB] min-h-screen p-4 lg:p-8 pb-32">
-      <header className="mb-6 flex items-start justify-between gap-4">
-        <div className="flex items-center gap-4">
+    <div className="flex-1 min-w-0 max-w-full bg-[#F7F9FB] min-h-screen p-4 lg:p-8 pb-32 overflow-x-hidden">
+      <header className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex items-center gap-4 min-w-0">
           <button
             onClick={onOpenSidebar}
-            className="lg:hidden w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors"
+            className="lg:hidden w-10 h-10 shrink-0 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors"
           >
             <Icons.Menu size={20} />
           </button>
           <div className="hidden lg:flex w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 items-center justify-center text-slate-400">
             <Icons.DashboardGrid size={20} />
           </div>
-          <div>
+          <div className="min-w-0">
             <h2 className="text-xl font-headline font-bold text-on-surface">Reports</h2>
             <p className="text-xs text-slate-400 font-medium">
               Stock, sales, accounts, balance sheet, and payables/receivables reports
