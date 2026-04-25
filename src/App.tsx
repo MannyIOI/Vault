@@ -300,7 +300,7 @@ const ItemHistoryOverlay = ({ item, transactions, onClose, onReturn, onSettle, o
                     <p className="font-headline font-bold print:text-slate-900">{Number(item.valuation || 0).toLocaleString()} ETB</p>
                   </div>
                 </div>
-                {onToggleMaintenance && (
+                {onToggleMaintenance && (item.status === 'IN_STOCK' || item.underMaintenance) && (
                   <button
                     onClick={() => onToggleMaintenance(item.id, !item.underMaintenance)}
                     className={`mt-4 w-full px-4 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all no-print ${
@@ -311,6 +311,11 @@ const ItemHistoryOverlay = ({ item, transactions, onClose, onReturn, onSettle, o
                   >
                     {item.underMaintenance ? '✓ Currently Under Maintenance — Mark as Returned to Service' : 'Mark as Under Maintenance'}
                   </button>
+                )}
+                {onToggleMaintenance && item.status !== 'IN_STOCK' && !item.underMaintenance && (
+                  <p className="mt-4 text-center text-[10px] uppercase font-bold text-slate-400 tracking-widest no-print">
+                    Only in-stock items can be marked under maintenance
+                  </p>
                 )}
               </div>
             <div className="flex-grow overflow-y-auto p-8 no-scrollbar">
@@ -4893,6 +4898,11 @@ function App() {
   };
 
   const handleToggleMaintenance = async (id: string, value: boolean) => {
+    const target = inventory.find(it => it.id === id);
+    if (value && target && target.status !== 'IN_STOCK') {
+      notify.error('Only in-stock items can be marked under maintenance');
+      return;
+    }
     try {
       await setDoc(doc(db, 'inventory', id), { underMaintenance: value }, { merge: true });
       setInventory(prev => prev.map(it => it.id === id ? { ...it, underMaintenance: value } : it));
