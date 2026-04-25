@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Icons, BankAccount, BankTransaction, Loan, InventoryItem } from '../types';
+import { Icons, BankAccount, BankTransaction, Loan, InventoryItem, Contact } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { AsyncButton } from './AsyncButton';
 
@@ -16,12 +16,14 @@ interface BankScreenProps {
   onSettleLoan: (loan: Loan, amount?: number) => void;
   initialTab?: 'Banks' | 'Others' | 'Loans' | 'Report';
   trustContacts?: string[];
+  contacts?: Contact[];
+  onAddContact?: (c: Partial<Contact>) => Promise<Contact | null>;
   inventory?: InventoryItem[];
   onReturnItem?: (item: InventoryItem) => void;
   onSettleItem?: (item: InventoryItem, cashReceived: number, bankAccountId?: string) => void;
 }
 
-export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, onAddAccount, onOpenSidebar, users, loans, onAddLoan, onSettleLoan, initialTab, trustContacts = [], inventory = [], onReturnItem, onSettleItem }) => {
+export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, onAddAccount, onOpenSidebar, users, loans, onAddLoan, onSettleLoan, initialTab, trustContacts = [], contacts = [], onAddContact, inventory = [], onReturnItem, onSettleItem }) => {
   // Live balance per account = baseline + deposits - withdrawals.
   const balanceFor = React.useCallback((acc: BankAccount) => {
     const txs = transactions.filter(t => t.bankAccountId === acc.id);
@@ -133,7 +135,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
           <button 
             onClick={() => {
               if (activeTab === 'Loans') {
-                setNewLoan({ type: 'GIVEN', counterparty: '', amount: 0, bankAccountId: '', dueDate: '', notes: '' });
+                setNewLoan({ type: 'GIVEN', counterparty: '', contactId: undefined, amount: 0, bankAccountId: '', dueDate: '', notes: '' });
                 setShowLoanModal(true);
                 return;
               }
@@ -779,23 +781,35 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Counterparty</label>
-                  <input
-                    type="text"
-                    list="loan-counterparty-suggestions"
-                    value={newLoan.counterparty || ''}
-                    onChange={e => setNewLoan({ ...newLoan, counterparty: e.target.value })}
-                    placeholder="Name of person or business"
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Contact</label>
+                  <select
+                    value={newLoan.contactId || ''}
+                    onChange={e => {
+                      const id = e.target.value;
+                      const c = contacts.find(c => c.id === id);
+                      setNewLoan({ ...newLoan, contactId: id || undefined, counterparty: c?.name || '' });
+                    }}
                     className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-primary/5"
-                  />
-                  <datalist id="loan-counterparty-suggestions">
-                    {Array.from(new Set([
-                      ...loans.map(l => l.counterparty).filter(Boolean),
-                      ...trustContacts,
-                    ])).map(name => (
-                      <option key={name} value={name} />
+                  >
+                    <option value="">— Select a contact —</option>
+                    {contacts.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
-                  </datalist>
+                  </select>
+                  {onAddContact && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const name = prompt('New contact name?');
+                        if (!name?.trim()) return;
+                        const created = await onAddContact({ name: name.trim(), type: newLoan.type === 'GIVEN' ? 'CUSTOMER' : 'VENDOR' });
+                        if (created) setNewLoan({ ...newLoan, contactId: created.id, counterparty: created.name });
+                      }}
+                      className="mt-2 text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Icons.Plus size={12} /> Add new contact
+                    </button>
+                  )}
                 </div>
                 <div>
                   <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Amount (ETB)</label>
@@ -860,7 +874,7 @@ export const BankScreen: React.FC<BankScreenProps> = ({ accounts, transactions, 
                 </div>
 
                 <AsyncButton
-                  disabled={!newLoan.counterparty || !newLoan.amount}
+                  disabled={!newLoan.contactId || !newLoan.amount}
                   onClick={async () => {
                     await onAddLoan(newLoan);
                     setShowLoanModal(false);

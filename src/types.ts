@@ -186,6 +186,7 @@ export interface Loan {
   id: string;
   type: 'GIVEN' | 'RECEIVED';
   counterparty: string;
+  contactId?: string;
   amount: number;
   bankAccountId?: string;
   status: 'OUTSTANDING' | 'SETTLED';
@@ -193,6 +194,17 @@ export interface Loan {
   dueDate?: string;
   notes?: string;
   organizationId?: string;
+}
+
+export interface Contact {
+  id: string;
+  organizationId?: string;
+  name: string;
+  type: 'VENDOR' | 'CUSTOMER' | 'BOTH';
+  phone?: string;
+  email?: string;
+  notes?: string;
+  createdAt?: string;
 }
 
 export const MOCK_TRANSACTIONS: Transaction[] = [

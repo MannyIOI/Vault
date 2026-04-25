@@ -42,7 +42,7 @@ import { ExecutiveDashboard } from './components/ExecutiveDashboard';
 import { BankScreen } from './components/BankScreen';
 import { WarehouseScreen } from './components/WarehouseScreen';
 import { EmployeeScreen } from './components/EmployeeScreen';
-import { BankAccount, BankTransaction, Warehouse, InventoryItem, Loan } from './types';
+import { BankAccount, BankTransaction, Warehouse, InventoryItem, Loan, Contact } from './types';
 
 // --- Error Boundary ---
 class ErrorBoundary extends React.Component<{ children?: React.ReactNode }, { hasError: boolean; error: any }> {
@@ -1463,94 +1463,511 @@ const NetworkOverviewScreen = ({ transactions, warehouses, metrics, onOpenSideba
   );
 };
 
-const LedgerScreen = ({ transactions, onTransactionClick, onOpenSidebar }: { transactions: Transaction[], onTransactionClick: (tx: any) => void, onOpenSidebar: () => void }) => {
-  const totalVolume = transactions.reduce((acc, tx) => acc + Math.abs(tx.amount), 0);
-  const pendingAudits = transactions.filter(tx => tx.status === 'PENDING').length;
+const LedgerScreen = ({
+  loans,
+  contacts,
+  onOpenSidebar,
+  onAddContact,
+  onUpdateContact,
+  onDeleteContact,
+  onSettleLoan,
+  onAddLoan,
+  bankAccounts,
+}: {
+  loans: Loan[];
+  contacts: Contact[];
+  onOpenSidebar: () => void;
+  onAddContact: (c: Partial<Contact>) => Promise<Contact | null>;
+  onUpdateContact: (id: string, patch: Partial<Contact>) => Promise<void>;
+  onDeleteContact: (id: string) => Promise<void>;
+  onSettleLoan: (loan: Loan, amount?: number) => void;
+  onAddLoan: (loan: Partial<Loan>) => void;
+  bankAccounts: BankAccount[];
+}) => {
+  const [tab, setTab] = useState<'Summary' | 'Contacts' | 'Adjustments'>('Summary');
+  const [contactSearch, setContactSearch] = useState('');
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [contactDraft, setContactDraft] = useState<Partial<Contact>>({ name: '', type: 'BOTH' });
+  const [adjustDraft, setAdjustDraft] = useState<Partial<Loan>>({ type: 'RECEIVED', counterparty: '', amount: 0, notes: '' });
+
+  // Resolve a "contact key" for every loan. If a loan has contact_id we use it;
+  // otherwise we fall back to the free-text counterparty so legacy data still
+  // groups sensibly.
+  const keyFor = (l: Loan) => l.contactId || `name:${(l.counterparty || 'Unknown').trim().toLowerCase()}`;
+  const labelFor = (l: Loan) => {
+    if (l.contactId) {
+      const c = contacts.find(c => c.id === l.contactId);
+      if (c) return c.name;
+    }
+    return l.counterparty || 'Unknown';
+  };
+
+  const outstandingLoans = loans.filter(l => l.status === 'OUTSTANDING');
+  const settledLoans = loans.filter(l => l.status === 'SETTLED');
+
+  // Aggregate by contact key
+  const aggregate = (filterType: Loan['type']) => {
+    const map = new Map<string, { label: string; total: number; contactId?: string }>();
+    outstandingLoans.filter(l => l.type === filterType).forEach(l => {
+      const k = keyFor(l);
+      const cur = map.get(k) || { label: labelFor(l), total: 0, contactId: l.contactId };
+      cur.total += Number(l.amount || 0);
+      map.set(k, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  };
+
+  // GIVEN = we lent → receivable. RECEIVED = we owe → payable.
+  const receivablesByContact = aggregate('GIVEN');
+  const payablesByContact = aggregate('RECEIVED');
+
+  const totalReceivables = receivablesByContact.reduce((s, x) => s + x.total, 0);
+  const totalPayables = payablesByContact.reduce((s, x) => s + x.total, 0);
+  const netPosition = totalReceivables - totalPayables;
+  const collectedAmount = settledLoans.filter(l => l.type === 'GIVEN').reduce((s, l) => s + Number(l.amount || 0), 0);
+  const totalGivenEver = collectedAmount + totalReceivables;
+  const collectionRate = totalGivenEver > 0 ? (collectedAmount / totalGivenEver) * 100 : 0;
+
+  const customersCount = receivablesByContact.length;
+  const vendorsCount = payablesByContact.length;
+
+  const Bar = ({ value, max, color }: { value: number; max: number; color: string }) => (
+    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+      <div className={`h-full ${color} rounded-full`} style={{ width: max > 0 ? `${Math.max(2, (value / max) * 100)}%` : '0%' }} />
+    </div>
+  );
+
+  const TopList = ({
+    title,
+    subtitle,
+    items,
+    color,
+    accent,
+  }: {
+    title: string;
+    subtitle: string;
+    items: { label: string; total: number }[];
+    color: 'red' | 'green';
+    accent: string;
+  }) => {
+    const max = items[0]?.total || 0;
+    const top = items.slice(0, 10);
+    return (
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Icons.Store size={18} className={color === 'red' ? 'text-red-500' : 'text-emerald-500'} />
+          <h3 className="font-headline font-bold text-on-surface">{title}</h3>
+        </div>
+        <p className="text-xs text-slate-400 mb-5">{subtitle}</p>
+        {top.length === 0 ? (
+          <div className="py-12 text-center text-slate-400 text-sm">No entries yet</div>
+        ) : (
+          <ul className="space-y-4">
+            {top.map((it, i) => (
+              <li key={i}>
+                <div className="flex items-baseline justify-between mb-1.5">
+                  <span className="font-bold text-sm text-on-surface truncate pr-3">{it.label}</span>
+                  <span className={`font-bold text-sm shrink-0 ${color === 'red' ? 'text-red-600' : 'text-emerald-600'}`}>
+                    ETB {it.total.toLocaleString()}
+                  </span>
+                </div>
+                <Bar value={it.total} max={max} color={accent} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  };
+
+  // Per-contact balances for the Contacts tab
+  const balanceFor = (contactId: string) => {
+    const rs = outstandingLoans.filter(l => l.contactId === contactId);
+    const receivable = rs.filter(l => l.type === 'GIVEN').reduce((s, l) => s + Number(l.amount || 0), 0);
+    const payable = rs.filter(l => l.type === 'RECEIVED').reduce((s, l) => s + Number(l.amount || 0), 0);
+    return { receivable, payable, net: receivable - payable };
+  };
+
+  const filteredContacts = contacts
+    .filter(c => !contactSearch || c.name.toLowerCase().includes(contactSearch.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Adjustments tab: chronological list of every loan/repayment row.
+  const adjustments = [...loans].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const openNewContact = () => {
+    setEditingContact(null);
+    setContactDraft({ name: '', type: 'BOTH' });
+    setShowContactModal(true);
+  };
+  const openEditContact = (c: Contact) => {
+    setEditingContact(c);
+    setContactDraft({ name: c.name, type: c.type, phone: c.phone, email: c.email, notes: c.notes });
+    setShowContactModal(true);
+  };
+  const submitContact = async () => {
+    if (!contactDraft.name?.trim()) return;
+    if (editingContact) {
+      await onUpdateContact(editingContact.id, contactDraft);
+    } else {
+      await onAddContact(contactDraft);
+    }
+    setShowContactModal(false);
+  };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-32">
-      <main className="pt-24 px-6 max-w-6xl mx-auto">
-        <header className="flex items-center gap-6 mb-12">
-          <button 
+    <div className="flex-1 bg-[#F7F9FB] min-h-screen p-4 lg:p-8 pb-32">
+      <header className="mb-8 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <button
             onClick={onOpenSidebar}
-            className="lg:hidden w-12 h-12 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 transition-all hover:scale-105 active:scale-95"
+            className="lg:hidden w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors"
           >
-            <Icons.Menu size={24} />
+            <Icons.Menu size={20} />
           </button>
+          <div className="hidden lg:flex w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 items-center justify-center text-slate-400">
+            <Icons.Ledger size={20} />
+          </div>
           <div>
-            <div className="flex items-center gap-2 mb-1">
-               <div className="w-2 h-2 rounded-full bg-primary animate-bounce" />
-               <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase">Today's List</p>
-            </div>
-            <h2 className="font-headline text-4xl font-black text-primary tracking-tighter uppercase italic">All Transactions</h2>
-          </div>
-        </header>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-primary p-8 rounded-xl flex flex-col justify-between h-48">
-            <span className="font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-400">Daily Sales (24h)</span>
-            <div className="font-headline text-4xl font-bold text-white tracking-tight">ETB {totalVolume.toLocaleString()}.00</div>
-            <div className="flex items-center text-emerald-400 text-sm font-medium">
-              <Icons.TrendingUp size={14} className="mr-1" /> {transactions.length} Transactions
-            </div>
-          </div>
-          <div className="bg-white p-8 rounded-xl flex flex-col justify-between h-48 shadow-sm">
-            <span className="font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-400">Total Transactions</span>
-            <div className="font-headline text-4xl font-bold text-primary tracking-tight">{transactions.length}</div>
-            <div className="flex items-center text-slate-500 text-sm">
-              <Icons.Lock size={14} className="mr-1" /> Last updated {new Date().toLocaleTimeString()}
-            </div>
-          </div>
-          <div className="bg-secondary-100 p-8 rounded-xl flex flex-col justify-between h-48">
-            <span className="font-label text-[0.75rem] font-bold uppercase tracking-wider text-secondary-700">To Check</span>
-            <div className="font-headline text-4xl font-bold text-[#2A1700] tracking-tight">{pendingAudits.toString().padStart(2, '0')}</div>
-            <div className="flex items-center text-secondary-700 text-sm">
-              <Icons.History size={14} className="mr-1" /> Manager must check
-            </div>
+            <h2 className="text-xl font-headline font-bold text-on-surface">Ledger</h2>
+            <p className="text-xs text-slate-400 font-medium">Manage payables and receivables</p>
           </div>
         </div>
-        <div className="bg-white rounded-xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50">
-                  <th className="px-6 py-4 font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-500">Date/Time</th>
-                  <th className="px-6 py-4 font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-500">Staff</th>
-                  <th className="px-6 py-4 font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-500">Type</th>
-                  <th className="px-6 py-4 font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-500">Details</th>
-                  <th className="px-6 py-4 font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-500">Price (ETB)</th>
-                  <th className="px-6 py-4 font-label text-[0.75rem] font-bold uppercase tracking-wider text-slate-500">Status</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm font-body divide-y divide-slate-50">
-                {transactions.map((tx: Transaction) => (
-                  <tr 
-                    key={tx.id} 
-                    onClick={() => onTransactionClick(tx)}
-                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+        <div className="flex bg-white rounded-xl border border-slate-100 shadow-sm p-1">
+          {(['Summary', 'Contacts', 'Adjustments'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                tab === t ? 'bg-slate-100 text-on-surface' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {tab === 'Summary' && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+              <div className="flex items-center gap-2 mb-3 text-xs text-slate-500 font-medium">
+                <Icons.ArrowDownLeft size={16} className="text-red-500" /> Total Payables
+              </div>
+              <p className="font-headline font-bold text-2xl text-red-600">ETB {totalPayables.toLocaleString()}</p>
+              <p className="text-xs text-slate-400 mt-1">{vendorsCount} vendor{vendorsCount === 1 ? '' : 's'}</p>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+              <div className="flex items-center gap-2 mb-3 text-xs text-slate-500 font-medium">
+                <Icons.ArrowUpRight size={16} className="text-emerald-500" /> Total Receivables
+              </div>
+              <p className="font-headline font-bold text-2xl text-emerald-600">ETB {totalReceivables.toLocaleString()}</p>
+              <p className="text-xs text-slate-400 mt-1">{customersCount} customer{customersCount === 1 ? '' : 's'}</p>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+              <div className="flex items-center gap-2 mb-3 text-xs text-slate-500 font-medium">
+                <Icons.Wallet size={16} className="text-blue-500" /> Net Position
+              </div>
+              <p className={`font-headline font-bold text-2xl ${netPosition >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                ETB {netPosition.toLocaleString()}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">{netPosition >= 0 ? 'Positive' : 'Negative'}</p>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+              <div className="flex items-center gap-2 mb-3 text-xs text-slate-500 font-medium">
+                <Icons.Cash size={16} className="text-purple-500" /> Collection Rate
+              </div>
+              <p className="font-headline font-bold text-2xl text-purple-600">{collectionRate.toFixed(1)}%</p>
+              <p className="text-xs text-slate-400 mt-1">ETB {collectedAmount.toLocaleString()} collected</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <TopList
+              title="Top 10 Vendors (Payables)"
+              subtitle="Vendors you owe the most"
+              items={payablesByContact}
+              color="red"
+              accent="bg-red-400"
+            />
+            <TopList
+              title="Top 10 Customers (Receivables)"
+              subtitle="Customers who owe you the most"
+              items={receivablesByContact}
+              color="green"
+              accent="bg-emerald-400"
+            />
+          </div>
+        </>
+      )}
+
+      {tab === 'Contacts' && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between mb-6">
+            <div>
+              <h3 className="font-headline font-bold text-on-surface">Contacts</h3>
+              <p className="text-xs text-slate-400 mt-0.5">{contacts.length} total</p>
+            </div>
+            <div className="flex gap-3">
+              <div className="relative">
+                <Icons.Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={contactSearch}
+                  onChange={e => setContactSearch(e.target.value)}
+                  placeholder="Search contacts..."
+                  className="bg-slate-50 border-none rounded-xl pl-9 pr-4 py-2 text-xs font-medium outline-none focus:ring-2 focus:ring-primary/10"
+                />
+              </div>
+              <button
+                onClick={openNewContact}
+                className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:opacity-90"
+              >
+                <Icons.Plus size={14} /> New Contact
+              </button>
+            </div>
+          </div>
+          {filteredContacts.length === 0 ? (
+            <div className="py-16 text-center text-slate-400">
+              <Icons.User size={40} className="mx-auto opacity-20 mb-3" />
+              <p className="text-sm">No contacts yet. Add one to start tracking payables and receivables.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-50">
+              {filteredContacts.map(c => {
+                const b = balanceFor(c.id);
+                return (
+                  <li key={c.id} className="py-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-sm text-on-surface truncate">{c.name}</p>
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500">{c.type}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {c.phone || c.email || 'No contact info'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-6 shrink-0">
+                      <div className="text-right">
+                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Receivable</p>
+                        <p className="font-bold text-sm text-emerald-600">{b.receivable.toLocaleString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Payable</p>
+                        <p className="font-bold text-sm text-red-600">{b.payable.toLocaleString()}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => openEditContact(c)} className="p-2 rounded-lg hover:bg-slate-50 text-slate-400" title="Edit">
+                          <Icons.MoreVertical size={14} />
+                        </button>
+                        <button
+                          onClick={() => { if (confirm(`Delete contact "${c.name}"?`)) onDeleteContact(c.id); }}
+                          className="p-2 rounded-lg hover:bg-red-50 text-red-400"
+                          title="Delete"
+                        >
+                          <Icons.Close size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {tab === 'Adjustments' && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="font-headline font-bold text-on-surface">Adjustments</h3>
+              <p className="text-xs text-slate-400 mt-0.5">All payable and receivable entries</p>
+            </div>
+            <button
+              onClick={() => { setAdjustDraft({ type: 'RECEIVED', counterparty: '', amount: 0, notes: '' }); setShowAdjustModal(true); }}
+              className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:opacity-90"
+            >
+              <Icons.Plus size={14} /> New Adjustment
+            </button>
+          </div>
+          {adjustments.length === 0 ? (
+            <div className="py-16 text-center text-slate-400">
+              <Icons.Receipt size={40} className="mx-auto opacity-20 mb-3" />
+              <p className="text-sm">No payable or receivable entries yet.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-50">
+              {adjustments.map(l => {
+                const isReceivable = l.type === 'GIVEN';
+                const settled = l.status === 'SETTLED';
+                return (
+                  <li key={l.id} className="py-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className={`font-bold text-sm truncate ${settled ? 'text-slate-400 line-through' : 'text-on-surface'}`}>{labelFor(l)}</p>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${isReceivable ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                          {isReceivable ? 'Receivable' : 'Payable'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {new Date(l.date).toLocaleDateString()}
+                        {l.dueDate ? ` · due ${new Date(l.dueDate).toLocaleDateString()}` : ''}
+                        {l.notes ? ` · ${l.notes}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <p className={`font-bold text-sm ${isReceivable ? 'text-emerald-600' : 'text-red-600'} ${settled ? 'line-through opacity-60' : ''}`}>
+                        ETB {Number(l.amount).toLocaleString()}
+                      </p>
+                      {settled ? (
+                        <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-400">Settled</span>
+                      ) : (
+                        <button
+                          onClick={() => onSettleLoan(l)}
+                          className="px-3 py-1.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-700"
+                        >
+                          Mark Settled
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* Contact modal */}
+      <AnimatePresence>
+        {showContactModal && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowContactModal(false)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] sm:w-[460px] bg-white rounded-3xl z-[210] p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-headline font-bold text-on-surface">{editingContact ? 'Edit Contact' : 'New Contact'}</h3>
+                <button onClick={() => setShowContactModal(false)} className="p-2 hover:bg-slate-100 rounded-xl"><Icons.Close size={20} /></button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Name *</label>
+                  <input value={contactDraft.name || ''} onChange={e => setContactDraft({ ...contactDraft, name: e.target.value })}
+                    className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" placeholder="Contact name" />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Type</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['VENDOR','CUSTOMER','BOTH'] as const).map(t => (
+                      <button key={t} type="button" onClick={() => setContactDraft({ ...contactDraft, type: t })}
+                        className={`py-2.5 rounded-xl text-xs font-bold ${contactDraft.type === t ? 'bg-primary text-white' : 'bg-slate-50 text-slate-500'}`}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Phone</label>
+                    <input value={contactDraft.phone || ''} onChange={e => setContactDraft({ ...contactDraft, phone: e.target.value })}
+                      className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Email</label>
+                    <input value={contactDraft.email || ''} onChange={e => setContactDraft({ ...contactDraft, email: e.target.value })}
+                      className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Notes</label>
+                  <textarea value={contactDraft.notes || ''} onChange={e => setContactDraft({ ...contactDraft, notes: e.target.value })}
+                    rows={2} className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" />
+                </div>
+                <button disabled={!contactDraft.name?.trim()} onClick={submitContact}
+                  className="w-full bg-primary text-white py-4 rounded-2xl font-headline font-bold hover:opacity-90 disabled:opacity-40">
+                  {editingContact ? 'Save Changes' : 'Create Contact'}
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Adjustment modal — creates a new payable/receivable entry tied to a contact */}
+      <AnimatePresence>
+        {showAdjustModal && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowAdjustModal(false)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] sm:w-[460px] bg-white rounded-3xl z-[210] p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-headline font-bold text-on-surface">New Adjustment</h3>
+                <button onClick={() => setShowAdjustModal(false)} className="p-2 hover:bg-slate-100 rounded-xl"><Icons.Close size={20} /></button>
+              </div>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  {(['RECEIVED','GIVEN'] as const).map(t => (
+                    <button key={t} type="button" onClick={() => setAdjustDraft({ ...adjustDraft, type: t })}
+                      className={`py-3 rounded-xl text-xs font-bold ${adjustDraft.type === t ? 'bg-primary text-white' : 'bg-slate-50 text-slate-500'}`}>
+                      {t === 'RECEIVED' ? 'Payable (we owe)' : 'Receivable (owed to us)'}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Contact</label>
+                  <select
+                    value={adjustDraft.contactId || ''}
+                    onChange={e => {
+                      const id = e.target.value;
+                      const c = contacts.find(c => c.id === id);
+                      setAdjustDraft({ ...adjustDraft, contactId: id || undefined, counterparty: c?.name || adjustDraft.counterparty });
+                    }}
+                    className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10"
                   >
-                    <td className="px-6 py-5 whitespace-nowrap text-slate-500">{new Date(tx.timestamp).toLocaleString()}</td>
-                    <td className="px-6 py-5 font-semibold text-primary">{tx.clerk}</td>
-                    <td className="px-6 py-5 text-on-surface font-medium">{tx.type}</td>
-                    <td className="px-6 py-5 text-slate-600">
-                      {tx.item}
-                      {tx.imei && <div className="text-[10px] text-slate-400 font-mono">IMEI: {tx.imei}</div>}
-                      {tx.location && <div className="text-[10px] text-slate-400">Loc: {tx.location}</div>}
-                    </td>
-                    <td className={`px-6 py-5 font-headline font-bold ${tx.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {tx.amount.toLocaleString()}.00
-                    </td>
-                    <td className="px-6 py-5">
-                      <span className={`px-3 py-1 rounded-full font-label text-[0.7rem] font-bold uppercase ${tx.status === 'SETTLED' || tx.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
-                        {tx.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </main>
+                    <option value="">— Select a contact —</option>
+                    {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  {contacts.length === 0 && (
+                    <p className="text-[11px] text-slate-400 mt-2">No contacts yet. Add one in the Contacts tab first.</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Amount (ETB)</label>
+                  <input type="number" value={adjustDraft.amount || 0} onChange={e => setAdjustDraft({ ...adjustDraft, amount: Number(e.target.value) })}
+                    className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Bank Account</label>
+                  <select value={adjustDraft.bankAccountId || ''} onChange={e => setAdjustDraft({ ...adjustDraft, bankAccountId: e.target.value })}
+                    className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10">
+                    <option value="">— None / Cash —</option>
+                    {bankAccounts.map(a => <option key={a.id} value={a.id}>{a.bankName} · {a.accountNumber}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 block">Notes</label>
+                  <textarea value={adjustDraft.notes || ''} onChange={e => setAdjustDraft({ ...adjustDraft, notes: e.target.value })}
+                    rows={2} className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" />
+                </div>
+                <button
+                  disabled={!adjustDraft.contactId || !adjustDraft.amount}
+                  onClick={async () => {
+                    await onAddLoan(adjustDraft);
+                    setShowAdjustModal(false);
+                  }}
+                  className="w-full bg-primary text-white py-4 rounded-2xl font-headline font-bold hover:opacity-90 disabled:opacity-40">
+                  Record Entry
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -2843,12 +3260,12 @@ const SCREEN_DEPS: Partial<Record<Screen, string[]>> = {
   DASHBOARD:      ['transactions'],
   VAULT_DASHBOARD:['transactions', 'warehouses'],
   WAREHOUSE:      ['transactions', 'warehouses'],
-  BANK:           ['bank_accounts', 'bank_transactions', 'loans', 'users', 'inventory'],
-  LOANS:          ['bank_accounts', 'bank_transactions', 'loans', 'users', 'inventory'],
+  BANK:           ['bank_accounts', 'bank_transactions', 'loans', 'users', 'inventory', 'contacts'],
+  LOANS:          ['bank_accounts', 'bank_transactions', 'loans', 'users', 'inventory', 'contacts'],
   VAULT:          ['inventory', 'warehouses'],
   ITEMS:          ['inventory', 'warehouses'],
   NETWORK:        ['transactions', 'warehouses'],
-  LEDGER:         ['transactions'],
+  LEDGER:         ['transactions', 'loans', 'contacts', 'bank_accounts'],
   RECONCILE:      ['transactions'],
   AUDIT:          ['transactions'],
   INVITE:         ['invites', 'users'],
@@ -2902,6 +3319,7 @@ function App() {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [cart, setCart] = useState<{item: InventoryItem, salePrice: number}[]>([]);
@@ -3100,6 +3518,14 @@ function App() {
       } catch (e) { console.error('Failed to load loans', e); notify.error(e); }
     };
 
+    const fetchContacts = async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'contacts'), orderBy('name', 'asc')));
+        setContacts(snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Contact)));
+        loadedRef.current.add('contacts');
+      } catch (e) { console.error('Failed to load contacts', e); notify.error(e); }
+    };
+
     const fetchUsers = async () => {
       try {
         const snap = await getDocs(collection(db, 'users'));
@@ -3126,6 +3552,7 @@ function App() {
       bank_accounts: fetchBankAccounts,
       bank_transactions: fetchBankTransactions,
       loans: fetchLoans,
+      contacts: fetchContacts,
       users: fetchUsers,
       warehouses: fetchWarehouses,
     };
@@ -3701,6 +4128,62 @@ function App() {
     }
   };
 
+  const handleAddContact = async (c: Partial<Contact>): Promise<Contact | null> => {
+    if (!userData?.organizationId) {
+      handleDbError(new Error('No organization selected'), OperationType.WRITE, 'contacts');
+      return null;
+    }
+    if (!c.name?.trim()) return null;
+    try {
+      const ref = await addDoc(collection(db, 'contacts'), {
+        name: c.name.trim(),
+        type: c.type || 'BOTH',
+        phone: c.phone || null,
+        email: c.email || null,
+        notes: c.notes || null,
+        organizationId: userData.organizationId,
+      });
+      const created: Contact = {
+        id: ref.id,
+        name: c.name.trim(),
+        type: (c.type || 'BOTH') as Contact['type'],
+        phone: c.phone,
+        email: c.email,
+        notes: c.notes,
+        organizationId: userData.organizationId,
+      };
+      setContacts(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+      return created;
+    } catch (e) {
+      handleDbError(e, OperationType.WRITE, 'contacts');
+      return null;
+    }
+  };
+
+  const handleUpdateContact = async (id: string, patch: Partial<Contact>) => {
+    try {
+      await setDoc(doc(db, 'contacts', id), {
+        name: patch.name,
+        type: patch.type,
+        phone: patch.phone ?? null,
+        email: patch.email ?? null,
+        notes: patch.notes ?? null,
+      }, { merge: true });
+      setContacts(prev => prev.map(c => c.id === id ? { ...c, ...patch } : c));
+    } catch (e) {
+      handleDbError(e, OperationType.WRITE, `contacts/${id}`);
+    }
+  };
+
+  const handleDeleteContact = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'contacts', id));
+      setContacts(prev => prev.filter(c => c.id !== id));
+    } catch (e) {
+      handleDbError(e, OperationType.DELETE, `contacts/${id}`);
+    }
+  };
+
   const handleAddLoan = async (loan: Partial<Loan>) => {
     if (!userData?.organizationId) {
       handleDbError(new Error('No organization selected'), OperationType.WRITE, 'loans');
@@ -3728,6 +4211,7 @@ function App() {
       await addDoc(collection(db, 'loans'), {
         type: loan.type || 'GIVEN',
         counterparty: loan.counterparty,
+        contactId: loan.contactId || null,
         amount,
         bankAccountId: loan.bankAccountId || null,
         status: 'OUTSTANDING',
@@ -3892,8 +4376,8 @@ function App() {
                     onOpenSidebar={() => setIsSidebarOpen(true)}
                   />
                 )}
-                {screen === 'BANK' && <BankScreen accounts={visibleBankAccounts} transactions={visibleBankTransactions} onAddAccount={handleAddBankAccount} onOpenSidebar={() => setIsSidebarOpen(true)} users={visibleUsers} loans={loans} onAddLoan={handleAddLoan} onSettleLoan={handleSettleLoan} trustContacts={trustContacts} inventory={inventory} onReturnItem={handleReturn} onSettleItem={handleSettleLentItem} />}
-                {screen === 'LOANS' && <BankScreen accounts={visibleBankAccounts} transactions={visibleBankTransactions} onAddAccount={handleAddBankAccount} onOpenSidebar={() => setIsSidebarOpen(true)} users={visibleUsers} loans={loans} onAddLoan={handleAddLoan} onSettleLoan={handleSettleLoan} initialTab="Loans" trustContacts={trustContacts} inventory={inventory} onReturnItem={handleReturn} onSettleItem={handleSettleLentItem} />}
+                {screen === 'BANK' && <BankScreen accounts={visibleBankAccounts} transactions={visibleBankTransactions} onAddAccount={handleAddBankAccount} onOpenSidebar={() => setIsSidebarOpen(true)} users={visibleUsers} loans={loans} onAddLoan={handleAddLoan} onSettleLoan={handleSettleLoan} trustContacts={trustContacts} contacts={contacts} onAddContact={handleAddContact} inventory={inventory} onReturnItem={handleReturn} onSettleItem={handleSettleLentItem} />}
+                {screen === 'LOANS' && <BankScreen accounts={visibleBankAccounts} transactions={visibleBankTransactions} onAddAccount={handleAddBankAccount} onOpenSidebar={() => setIsSidebarOpen(true)} users={visibleUsers} loans={loans} onAddLoan={handleAddLoan} onSettleLoan={handleSettleLoan} initialTab="Loans" trustContacts={trustContacts} contacts={contacts} onAddContact={handleAddContact} inventory={inventory} onReturnItem={handleReturn} onSettleItem={handleSettleLentItem} />}
                 {(screen === 'VAULT' || screen === 'ITEMS') && (
                   <VaultScreen 
                     inventory={inventory} 
@@ -3915,10 +4399,16 @@ function App() {
                   />
                 )}
                 {screen === 'LEDGER' && (
-                  <LedgerScreen 
-                    transactions={visibleTransactions} 
-                    onTransactionClick={setSelectedTransaction} 
+                  <LedgerScreen
+                    loans={loans}
+                    contacts={contacts}
+                    bankAccounts={visibleBankAccounts}
                     onOpenSidebar={() => setIsSidebarOpen(true)}
+                    onAddContact={handleAddContact}
+                    onUpdateContact={handleUpdateContact}
+                    onDeleteContact={handleDeleteContact}
+                    onSettleLoan={handleSettleLoan}
+                    onAddLoan={handleAddLoan}
                   />
                 )}
                 {screen === 'RECONCILE' && (

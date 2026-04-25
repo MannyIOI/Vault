@@ -28,6 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, user
       label: 'Finance',
       items: [
         { id: 'BANK', label: 'Bank', icon: Icons.Bank, adminOnly: false },
+        { id: 'LEDGER', label: 'Ledger', icon: Icons.Ledger, adminOnly: true },
         { id: 'LOANS', label: 'Loans', icon: Icons.Wallet, adminOnly: true },
       ]
     },
