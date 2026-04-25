@@ -2208,16 +2208,21 @@ const ContactsScreen = ({
 const ContractsScreen = ({
   contracts,
   contacts,
+  orgName,
+  userName,
   onOpenSidebar,
   onAddContract,
   onDeleteContract,
 }: {
   contracts: Contract[];
   contacts: Contact[];
+  orgName: string;
+  userName: string;
   onOpenSidebar: () => void;
   onAddContract: (c: Partial<Contract>) => Promise<Contract | null>;
   onDeleteContract: (id: string) => Promise<void>;
 }) => {
+  const clientLabel = [orgName, userName].filter(Boolean).join(' · ') || 'Current organization';
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [tab, setTab] = useState<'Form' | 'Images'>('Form');
@@ -2248,7 +2253,7 @@ const ContractsScreen = ({
     let recurrence: any = null;
     if (draft.term === 'RECURRING') recurrence = { interval: recurInterval, count: recurCount };
     else if (draft.term === 'MILESTONES') recurrence = { milestones };
-    await onAddContract({ ...draft, recurrence });
+    await onAddContract({ ...draft, clientParty: clientLabel, recurrence });
     setShowModal(false);
     setDraft({ name: '', amount: 0, term: 'ONE_TIME', startDate: today, endDate: '', status: 'APPROVED', currency: 'ETB' });
     setMilestones([{ date: today, amount: 0, label: 'Milestone 1' }]);
@@ -2391,13 +2396,14 @@ const ContractsScreen = ({
                     <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
                       <div>
                         <label className="text-[10px] text-slate-500 mb-1 block">Client (Paying)</label>
-                        <input value={draft.clientParty || ''} onChange={e => setDraft({ ...draft, clientParty: e.target.value })}
-                          placeholder="Client name"
-                          className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/10" />
+                        <div className="w-full bg-slate-100 border border-slate-200 rounded-xl p-3 text-sm text-slate-600 flex items-center gap-2" title="Auto-set to your organization and account">
+                          <Icons.Lock size={12} className="text-slate-400 shrink-0" />
+                          <span className="truncate">{clientLabel}</span>
+                        </div>
                       </div>
-                      <button type="button" className="mt-5 p-2.5 bg-slate-50 rounded-xl text-slate-400 hover:bg-slate-100" title="Swap">
+                      <div className="mt-5 p-2.5 text-slate-300">
                         <Icons.ArrowLeftRight size={14} />
-                      </button>
+                      </div>
                       <div>
                         <label className="text-[10px] text-slate-500 mb-1 block">Vendor (Receiving)</label>
                         <select value={draft.contactId || ''} onChange={e => {
@@ -5056,6 +5062,8 @@ function App() {
                   <ContractsScreen
                     contracts={contracts}
                     contacts={contacts}
+                    orgName={orgName}
+                    userName={userData?.displayName || userData?.email || user?.email || ''}
                     onOpenSidebar={() => setIsSidebarOpen(true)}
                     onAddContract={handleAddContract}
                     onDeleteContract={handleDeleteContract}
